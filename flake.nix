@@ -33,11 +33,11 @@
             echo "Activating Python virtual environment..."
             source venv/bin/activate
 
-            if [ ! -f "requirements.txt" ]; then
-              echo "Creating a requirements.txt file..."
-              touch requirements.txt
+            if [ ! -f "requirements_dev.txt" ]; then
+              echo "Creating a requirements_dev.txt file..."
+              touch requirements_dev.txt
             fi
-            pip install -r requirements.txt
+            pip install -r requirements_dev.txt
           '';
         };
       }
