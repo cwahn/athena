@@ -4,6 +4,14 @@ from time import sleep
 from athena.base.io import Io
 
 
+def loop(io: Io[None]) -> Io[None]:
+    def _inner() -> None:
+        while True:
+            io.action()
+
+    return Io(_inner)
+
+
 def delay_for(delay: timedelta) -> Io[None]:
     return Io(lambda: sleep(delay.total_seconds()))
 

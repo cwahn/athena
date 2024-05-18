@@ -7,7 +7,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from athena.base.io import put_strln, get_str
+from athena.base.io import Io, put_strln, get_str
 from athena.base.control import delay_for
 
 
@@ -21,6 +21,8 @@ ask_and_sleep = (
     )
 )
 
+ask_and_sleep_loop = loop(ask_and_sleep)    
+
 
 if __name__ == "__main__":
-    ask_and_sleep.action()
+    ask_and_sleep_loop.action()
