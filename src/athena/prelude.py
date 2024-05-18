@@ -65,15 +65,11 @@ def drop(n: int, xs: Iterable[_A]) -> Iterator[_A]:
 
 
 def elem(x: _A, xs: Iterable[_A]) -> bool:
-    return any(x == y for y in xs)
+    return x in xs
 
 
 def not_elem(x: _A, xs: Iterable[_A]) -> bool:
-    return all(x != y for y in xs)
-
-
-def zip(xs: Iterable[_A], ys: Iterable[_B]) -> Iterator[Tuple[_A, _B]]:
-    return iter(zip(xs, ys))
+    return x not in xs
 
 
 def unzip(pairs: Iterable[Tuple[_A, _B]]) -> Tuple[Iterator[_A], Iterator[_B]]:

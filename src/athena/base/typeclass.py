@@ -1,7 +1,6 @@
 from __future__ import annotations
 from re import L
-from typing import Any, Callable, List, Protocol, Type, TypeVar,
-
+from typing import Any, Callable, List, Protocol, Type, TypeVar
 
 
 _A = TypeVar("_A")
@@ -15,21 +14,24 @@ class Functor(Protocol[_A_co]):
     @staticmethod
     def fmap(f: Callable[[_A], _B], x: Any[_A_co]) -> Any[_B]: ...
 
-    # Make type checker to indicate built in list as a Functor regardless of the implementation
-    # type:
-
 
 class Applicative(Functor[_A_co], Protocol[_A_co]):
     @staticmethod
     def pure(x: Any) -> Any[_A]: ...
 
     @staticmethod
-    def ap(f: Any[Callable[[_A], _B]], x: Any[_A]) -> Any[_B]: ...
+    def ap(f: Any[Callable[[_A], _B]], x: Any[_A]) -> Any[_B]: ...  # type: ignore
 
 
 class Monad(Applicative[_A_co], Protocol[_A_co]):
     @staticmethod
     def bind(x: Any[_A], f: Callable[[_A], Any[_B]]) -> Any[_B]: ...
+
+
+class Show(Protocol):
+    def __repr__(self) -> str: ...
+
+    def __str__(self) -> str: ...
 
 
 # Monkey-patch implementations
