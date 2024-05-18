@@ -39,6 +39,7 @@ class Io(Generic[_A]):
         def inner() -> _B:
             self.action()
             return x.action()
+
         return Io(inner)
 
 
