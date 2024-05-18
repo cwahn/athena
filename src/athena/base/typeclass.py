@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import Any, Callable, Protocol, Type, TypeVar, runtime_checkable
+from re import L
+from typing import Any, Callable, List, Protocol, Type, TypeVar,
 
-from more_itertools import take
 
 
 _A = TypeVar("_A")
@@ -14,6 +14,9 @@ _B_co = TypeVar("_B_co", covariant=True)
 class Functor(Protocol[_A_co]):
     @staticmethod
     def fmap(f: Callable[[_A], _B], x: Any[_A_co]) -> Any[_B]: ...
+
+    # Make type checker to indicate built in list as a Functor regardless of the implementation
+    # type:
 
 
 class Applicative(Functor[_A_co], Protocol[_A_co]):
@@ -32,32 +35,82 @@ class Monad(Applicative[_A_co], Protocol[_A_co]):
 # Monkey-patch implementations
 
 
-@runtime_checkable
-class DuckLike(Protocol):
-    def quack(self) -> None: ...
+# @runtime_checkable
+# class DuckLike(Protocol):
+#     def quack(self) -> None: ...
 
 
-class Dog:
-    def bark(self) -> None:
-        print("Woof")
+# class Dog:
+#     def bark(self) -> None:
+#         print("Woof")
 
 
-def impl_duck(cls: Type) -> None:
-    cls.quack = lambda self: print("Quack")
+# def impl_duck(cls: Type) -> None:
+#     cls.quack = lambda self: print("Quack")
 
 
-def add_protocol(cls: Type) -> Type:
-    impl_duck(cls)
-    return type(cls.__name__, (cls, DuckLike), {})
+# def add_protocol(cls: Type) -> Type:
+#     impl_duck(cls)
+#     return type(cls.__name__, (cls, DuckLike), {})
 
 
-def quack(duck: DuckLike) -> None:
-    duck.quack()
+# def open(cls):
+#     def update(extension):
+#         for k, v in extension.__dict__.items():
+#             if k != "__dict__":
+#                 setattr(cls, k, v)
+#         return cls
+
+#     return update
 
 
-# Does raise an error
-# take_duck(Dog())
+# def act_like_duck(duck: DuckLike) -> None:
+#     duck.quack()
 
-Dog = add_protocol(Dog)
 
-quack(Dog())
+# # Does raise an error
+# # take_duck(Dog())
+
+# Dog = add_protocol(Dog)
+
+# act_like_duck(Dog())
+
+
+# # make_list = lambda: [1, 2, 3]
+# def make_list() -> List[int]:
+#     return [1, 2, 3]
+
+
+# # Does not raise an error
+# # quack(list())
+
+# # list = add_protocol(list)
+
+# # @open(list)
+# # class list:
+# #     def quack(self) -> None:
+# #         print("Quack")
+
+
+# def quack(self) -> None:
+#     print("Quacking")
+
+
+# def list_fmap(f: Callable[[_A], _B], xs: List[_A]) -> List[_B]:
+#     return [f(x) for x in xs]
+
+
+# from forbiddenfruit import curse
+
+# curse(list, "quack", quack)
+# curse(list, "fmap", list_fmap)
+
+# list.quack = quack
+
+# a = [1, 2, 3]
+# a.quack()
+
+# # act_like_duck(list())
+
+# # some_dict = {"a": 1, "b": 2}
+# # quack(make_list())
