@@ -8,7 +8,7 @@ sys.path.insert(
 )
 
 from athena.base.io import Io, put_strln, get_str
-from athena.base.control import delay_for
+from athena.base.control import delay_for, loop
 
 
 ask_and_sleep = (
@@ -21,7 +21,7 @@ ask_and_sleep = (
     )
 )
 
-ask_and_sleep_loop = loop(ask_and_sleep)    
+ask_and_sleep_loop = loop(ask_and_sleep)
 
 
 if __name__ == "__main__":
