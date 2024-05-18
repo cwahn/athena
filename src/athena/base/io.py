@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Generic, Literal, TypeVar
+from typing import Callable, Generic, Optional, TypeVar
 from dataclasses import dataclass
 
 from athena.base.typeclass import Functor, Monad
@@ -52,3 +52,6 @@ def put_strln(s: str) -> Io[None]:
 
 
 get_str = Io(input)
+
+
+A = Optional[int]

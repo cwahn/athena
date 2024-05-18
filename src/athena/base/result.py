@@ -51,9 +51,6 @@ class Ok(Result[_A]):
     def __bool__(self) -> bool:
         return True
 
-    # def __repr__(self) -> str:
-    #     return f"Ok {self.value}"
-
     @staticmethod
     def fmap(f: Callable[[_A], _B], x: Ok[_A]) -> Result[_B]:
         return Ok(f(x.value))
@@ -88,7 +85,7 @@ class Error(Result[Any]):
         self.exception = exception
 
     def __repr__(self) -> str:
-        return "Error"
+        return f"Error {{self.exception}}"
 
     def __str__(self) -> str:
         return repr(self)
@@ -125,30 +122,6 @@ class Error(Result[Any]):
         raise ValueError("Nothing.unwrap: cannot unwrap Nothing")
 
 
-Result_42 = Ok(42)
-Result_42_ = Error()
-
-if __name__ == "__main__":
-    if Result_42:
-        print(Result_42.unwrap())
-    else:
-        print("Nothing")
-
-    if Result_42_:
-        print(Result_42_.unwrap())
-    else:
-        print("Nothing")
-
-    Result_21 = Result_42.map(lambda x: x // 2)
-
-    def _Result_int(x: int) -> Result[int]:
-        return Ok(x)
-
-    Result_int = _Result_int(42)
-
-    Result_21 = Result_int.map(lambda x: x // 2)
-
-
 def result(f: Callable):  # -> Callable[..., Any | Exception]:
     def wrapper(*args, **kwargs):
         try:
@@ -159,13 +132,37 @@ def result(f: Callable):  # -> Callable[..., Any | Exception]:
     return wrapper
 
 
-@result
-def sqrt(x: float) -> Result[float]:
-    if x < 0:
-        raise ValueError("sqrt: negative number")
-    return x**0.5
+# Result_42 = Ok(42)
+# Result_42_ = Error()
+
+# if __name__ == "__main__":
+#     if Result_42:
+#         print(Result_42.unwrap())
+#     else:
+#         print("Nothing")
+
+#     if Result_42_:
+#         print(Result_42_.unwrap())
+#     else:
+#         print("Nothing")
+
+#     Result_21 = Result_42.map(lambda x: x // 2)
+
+#     def _Result_int(x: int) -> Result[int]:
+#         return Ok(x)
+
+#     Result_int = _Result_int(42)
+
+#     Result_21 = Result_int.map(lambda x: x // 2)
 
 
-if __name__ == "__main__":
-    print(sqrt(4))
-    print(sqrt(-4))
+# @result
+# def sqrt(x: float) -> Result[float]:
+#     if x < 0:
+#         raise ValueError("sqrt: negative number")
+#     return x**0.5
+
+
+# if __name__ == "__main__":
+#     print(sqrt(4))
+#     print(sqrt(-4))
