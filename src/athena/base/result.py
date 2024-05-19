@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, Protocol, TypeVar
 
 from typeclass import Monad
 
@@ -8,37 +8,35 @@ _A = TypeVar("_A")
 _B = TypeVar("_B")
 
 
-class Result(Monad[_A], ABC):
+class _Result(Monad[_A], Protocol[_A]):
     @staticmethod
-    @abstractmethod
-    def fmap(f: Callable[[_A], _B], x: Any[_A]) -> Result[_B]: ...
-
-    @staticmethod
-    @abstractmethod
-    def pure(x: _A) -> Result[_A]: ...
+    def fmap(f: Callable[[_A], _B], x: Any[_A]) -> _Result[_B]: ...
 
     @staticmethod
-    @abstractmethod
-    def ap(f: Any[Callable[[_A], _B]], x: Any[_A]) -> Result[_B]: ...
+    def pure(x: _A) -> _Result[_A]: ...
 
     @staticmethod
-    @abstractmethod
-    def bind(x: Any[_A], f: Callable[[_A], Any[_B]]) -> Result[_B]: ...
+    def ap(f: Any[Callable[[_A], _B]], x: Any[_A]) -> _Result[_B]: ...
 
-    @abstractmethod
-    def map(self, f: Callable[[_A], _B]) -> Result[_B]: ...
+    @staticmethod
+    def bind(x: Any[_A], f: Callable[[_A], _Result[_B]]) -> _Result[_B]: ...
 
-    @abstractmethod
-    def and_then(self, f: Callable[[_A], Any[_B]]) -> Result[_B]: ...
+    def map(self, f: Callable[[_A], _B]) -> _Result[_B]: ...
 
-    @abstractmethod
-    def then(self, x: Any[_B]) -> Result[_B]: ...
+    def and_then(self, f: Callable[[_A], _Result[_B]]) -> _Result[_B]: ...
 
-    @abstractmethod
+    def then(self, x: _Result[_B]) -> _Result[_B]: ...
+
+    def or_else(self, f: Callable[[Err], _Result[_A]]) -> _Result[_A]: ...
+
     def unwrap(self) -> _A: ...
 
+    def and_(self, x: _Result[_A]) -> _Result[_A]: ...
 
-class Ok(Result[_A]):
+    def or_(self, x: _Result[_A]) -> _Result[_A]: ...
+
+
+class Ok(_Result[_A]):
     def __init__(self, value: _A):
         self.value = value
 
@@ -52,40 +50,49 @@ class Ok(Result[_A]):
         return True
 
     @staticmethod
-    def fmap(f: Callable[[_A], _B], x: Ok[_A]) -> Result[_B]:
+    def fmap(f: Callable[[_A], _B], x: Ok[_A]) -> _Result[_B]:
         return Ok(f(x.value))
 
     @staticmethod
-    def pure(x: _A) -> Result[_A]:
+    def pure(x: _A) -> _Result[_A]:
         return Ok(x)
 
     @staticmethod
-    def ap(f: Ok[Callable[[_A], _B]], x: Ok[_A]) -> Result[_B]:
+    def ap(f: Ok[Callable[[_A], _B]], x: Ok[_A]) -> _Result[_B]:
         return Ok(f.value(x.value))
 
     @staticmethod
-    def bind(x: Ok[_A], f: Callable[[_A], Ok[_B]]) -> Result[_B]:
+    def bind(x: Ok[_A], f: Callable[[_A], _Result[_B]]) -> _Result[_B]:
         return f(x.value)
 
-    def map(self, f: Callable[[_A], _B]) -> Result[_B]:
+    def map(self, f: Callable[[_A], _B]) -> _Result[_B]:
         return Ok(f(self.value))
 
-    def and_then(self, f: Callable[[_A], Ok[_B]]) -> Result[_B]:
+    def and_then(self, f: Callable[[_A], _Result[_B]]) -> _Result[_B]:
         return f(self.value)
 
-    def then(self, x: Ok[_B]) -> Result[_B]:
+    def then(self, x: _Result[_B]) -> _Result[_B]:
         return x
+
+    def or_else(self, f: Callable[[Err], _Result[_A]]) -> _Result[_A]:
+        return self
 
     def unwrap(self) -> _A:
         return self.value
 
+    def and_(self, x: _Result[_A]) -> _Result[_A]:
+        return x
 
-class Error(Result[Any]):
+    def or_(self, x: _Result[_A]) -> _Result[_A]:
+        return self
+
+
+class Err(_Result[Any]):
     def __init__(self, exception: Exception = Exception()):
         self.exception = exception
 
     def __repr__(self) -> str:
-        return f"Error {{self.exception}}"
+        return f"Error {{{self.exception}}}"
 
     def __str__(self) -> str:
         return repr(self)
@@ -94,32 +101,44 @@ class Error(Result[Any]):
         return False
 
     @staticmethod
-    def fmap(f: Callable[[_A], _B], x: Error) -> Result[Any]:
-        return Error()
+    def fmap(f: Callable[[_A], _B], x: Err) -> _Result[_B]:
+        return Err()
 
     @staticmethod
-    def pure(x: _A) -> Result[Any]:
-        return Error()
+    def pure(x: _A) -> _Result[Any]:
+        return Err()
 
     @staticmethod
-    def ap(f: Error, x: Error) -> Result[Any]:
-        return Error()
+    def ap(f: Err, x: Err) -> _Result[Any]:
+        return Err()
 
     @staticmethod
-    def bind(x: Error, f: Callable[[_A], Error]) -> Result[Any]:
-        return Error()
+    def bind(x: Err, f: Callable[[_A], _Result[_B]]) -> _Result[_B]:
+        return Err()
 
-    def map(self, f: Callable[[_A], _B]) -> Result[Any]:
-        return Error()
+    def map(self, f: Callable[[_A], _B]) -> _Result[_B]:
+        return Err()
 
-    def and_then(self, f: Callable[[_A], Error]) -> Result[Any]:
-        return Error()
+    def and_then(self, f: Callable[[_A], _Result[_B]]) -> _Result[_B]:
+        return Err()
 
-    def then(self, x: Error) -> Result[Any]:
-        return Error()
+    def then(self, x: _Result[_B]) -> _Result[_B]:
+        return Err()
+
+    def or_else(self, f: Callable[[Err], _Result[_A]]) -> _Result[_A]:
+        return f(self)
 
     def unwrap(self) -> None:
         raise ValueError("Nothing.unwrap: cannot unwrap Nothing")
+
+    def and_(self, x: _Result[_A]) -> _Result[_A]:
+        return Err()
+
+    def or_(self, x: _Result[_A]) -> _Result[_A]:
+        return x
+
+
+Result = Ok | Err
 
 
 def result(f: Callable):  # -> Callable[..., Any | Exception]:
