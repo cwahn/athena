@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Callable, Generic, Optional, TypeVar
 from dataclasses import dataclass
 
-from athena.base.typeclass import Functor, Monad
+from .typeclass import Functor, Monad
 
 
 _A = TypeVar("_A")
