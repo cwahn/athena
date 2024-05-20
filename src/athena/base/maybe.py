@@ -2,7 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Protocol, TypeVar
 
-from typeclass import Monad
+from .typeclass import Monad
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")

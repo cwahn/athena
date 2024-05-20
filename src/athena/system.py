@@ -2,7 +2,7 @@ from pathlib import Path
 import subprocess
 from typing import List, Tuple, Union
 
-from base.io import Io
+from .base.io import Io
 
 # File system operation
 
@@ -15,12 +15,12 @@ def dir_exists(path: Path) -> Io[bool]:
     return Io(lambda: path.is_dir())
 
 
-def read_file(path: Path) -> Io[str]:
-    return Io(lambda: path.read_text())
-
-
 def list_dir(path: Path) -> Io[list[Path]]:
     return Io(lambda: list(path.iterdir()))
+
+
+def read_file(path: Path) -> Io[str]:
+    return Io(lambda: path.read_text())
 
 
 def write_file(path: Path, content: str) -> Io[None]:
@@ -35,6 +35,14 @@ def append_file(path: Path, content: str) -> Io[None]:
         path.write_text(path.read_text() + content)
 
     return Io(_inner)
+
+
+def create_dir(path: Path) -> Io[None]:
+    return Io(lambda: path.mkdir())
+
+
+def create_dir_if_missing(parent_as_well: bool, path: Path) -> Io[None]:
+    return Io(lambda: path.mkdir(parents=parent_as_well, exist_ok=True))
 
 
 def remove_file(path: Path) -> Io[None]:

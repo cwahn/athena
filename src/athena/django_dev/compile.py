@@ -3,12 +3,22 @@
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from shlex import join
 from typing import Callable, Dict, List, Tuple
 
 from athena.base.io import Io
 from athena.base.maybe import Just, Maybe, Nothing
-from athena.prelude import concat, foldl, for_each, sort_on, map, filter, head
-from athena.system import file_exists, read_file, write_file
+from athena.prelude import (
+    concat,
+    foldl,
+    for_each,
+    intercalate,
+    sort_on,
+    map,
+    filter,
+    head,
+)
+from athena.system import create_dir_if_missing, file_exists, read_file, write_file
 
 
 @dataclass
@@ -16,8 +26,10 @@ class PyIdent:
     module: List[str]
     qual_name: List[str]
 
-    def re_file_path(self) -> Path:
-        return Path(*self.module) / Path(*self.qual_name) / Path("__init__.py")
+    def file_path(self) -> Path:
+        # Add .py
+        path_parts = self.module[:-1] + [self.module[-1] + ".py"]
+        return Path(*path_parts)
 
     def fully_qualified_name(self) -> str:
         return ".".join(self.module + self.qual_name)
@@ -245,15 +257,18 @@ def parse_idents(lines: List[str]) -> Tuple[Dict[str, PyIdent], Dict[str, PyIden
 def existing_idents(path: Path) -> Io[Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]]:
     # Collect all the identifiers defined in the module if file exists
 
-    def _inner(exsits: bool) -> Io[Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]]:
-        if not exsits:
-            return Io(lambda: (dict(), dict()))
-        else:
-            return read_file(path).map(
-                lambda string: (lines := string.split("\n"), parse_idents(lines))[-1]
-            )
+    # def _inner(exsits: bool) -> Io[Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]]:
+    #     if not exsits:
+    #         return Io(lambda: (dict(), dict()))
+    #     else:
+    #         return read_file(path).map(
+    #             lambda string: (lines := string.split("\n"), parse_idents(lines))[-1]
+    #         )
 
-    return file_exists(path).and_then(_inner)
+    # return file_exists(path).and_then(_inner)
+    return read_file(path).map(
+        lambda string: (lines := string.split("\n"), parse_idents(lines))[-1]
+    )
 
 
 def import_as(
@@ -262,13 +277,16 @@ def import_as(
     ident: PyIdent,
 ) -> str:
     base_name = ident.qual_name[-1]
-    if base_name not in defined_idents:
+    if base_name not in defined_idents and base_name not in imported_idents:
         return base_name
 
     # Add module parts to the base name to avoid collision
     for i in range(1, len(ident.module) + 1):
         qualified_name = "_".join(ident.module[-i:] + ident.qual_name)
-        if qualified_name not in defined_idents:
+        if (
+            qualified_name not in defined_idents
+            and qualified_name not in imported_idents
+        ):
             return qualified_name
 
     # If still colliding, return fully qualified name
@@ -276,7 +294,26 @@ def import_as(
 
 
 def import_line(ident: PyIdent, import_as: str) -> str:
-    return f"from {ident.fully_qualified_name()} import {ident.qual_name[-1]} as {import_as}"
+    # return f"from {ident.module} import {ident.qual_name[-1]} as {import_as}"
+    # if it is a module, import the module
+    # if module with the same import_as just import module
+    # otherwise import the module as import_as
+    # if item in module, from module import item ,
+    # if item with the same import_as, from module import item
+
+    is_module = len(ident.qual_name) == 0
+    if is_module:
+        need_as = ".".join(ident.module) != import_as
+        if need_as:
+            return f"import {ident.module[-1]} as {import_as}"
+        else:
+            return f"import {ident.module[-1]}"
+    else:  # item in module
+        need_as = ".".join(ident.qual_name) != import_as
+        if need_as:
+            return f"from {".".join(ident.module)} import {".".join(ident.qual_name)} as {import_as}"
+        else:
+            return f"from {".".join(ident.module)} import {".".join(ident.qual_name)}"
 
 
 def deps_import_lines(
@@ -308,7 +345,6 @@ def append_import_lines(path: Path, import_lines: List[str]) -> Io[None]:
                 break
 
         # Insert the new import line at the end of the imports
-        # lines.insert(import_end, import_line)
         for_each(lambda line: lines.insert(import_end, line), import_lines)
         new_content = "\n".join(lines)
         return write_file(path, new_content)
@@ -339,17 +375,29 @@ def append_definition_lines(path: Path, def_lines: List[str]) -> Io[None]:
 
 
 def write_py_code(py_code: PyCode) -> Io[None]:
-    file_path = py_code.ident.re_file_path()
+    file_path = py_code.ident.file_path()
 
-    return existing_idents(file_path).and_then(
-        lambda idents: (
-            imported_idents := idents[0],
-            defined_idents := idents[1],
-            deps_import_lines_ := deps_import_lines(
-                imported_idents, defined_idents, py_code
-            ),
-            append_import_lines(file_path, deps_import_lines_).then(
-                append_definition_lines(file_path, py_code.code)
-            ),
-        )[-1]
+    return (
+        file_exists(file_path)
+        .and_then(
+            lambda exists: Io.pure(None)
+            if exists
+            else create_dir_if_missing(True, file_path.parent).then(
+                write_file(file_path, "")
+            )
+        )
+        .and_then(
+            lambda _: existing_idents(file_path).and_then(
+                lambda idents: (
+                    imported_idents := idents[0],
+                    defined_idents := idents[1],
+                    deps_import_lines_ := deps_import_lines(
+                        imported_idents, defined_idents, py_code
+                    ),
+                    append_import_lines(file_path, deps_import_lines_).then(
+                        append_definition_lines(file_path, py_code.code)
+                    ),
+                )[-1]
+            )
+        )
     )

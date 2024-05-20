@@ -8,6 +8,7 @@ _B = TypeVar("_B")
 
 # map and filter are already built-in functions in Python
 
+
 def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
     for x in xs:
         f(x)
