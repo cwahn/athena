@@ -7,9 +7,9 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from athena.base.maybe import Just
-from athena.prelude import foldl
-from athena.system import (
+from entoli.base.maybe import Just
+from entoli.prelude import foldl
+from entoli.system import (
     call_command,
     create_dir,
     create_process,
@@ -18,8 +18,8 @@ from athena.system import (
     write_file,
 )
 
-from athena.base.io import Io, put_strln, get_str
-from athena.base.control import delay_for, loop
+from entoli.base.io import Io, put_strln, get_str
+from entoli.base.control import delay_for, loop
 
 
 # make_build_dir = create_dir(Path("build"))

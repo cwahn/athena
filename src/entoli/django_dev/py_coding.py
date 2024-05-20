@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from athena.base.io import Io, put_strln
-from athena.base.maybe import Just, Maybe, Nothing
-from athena.prelude import (
+from entoli.base.io import Io, put_strln
+from entoli.base.maybe import Just, Maybe, Nothing
+from entoli.prelude import (
     concat,
     foldl,
     for_each,
@@ -14,7 +14,7 @@ from athena.prelude import (
     filter,
     head,
 )
-from athena.system import create_dir_if_missing, file_exists, read_file, write_file
+from entoli.system import create_dir_if_missing, file_exists, read_file, write_file
 
 
 @dataclass

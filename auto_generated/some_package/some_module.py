@@ -1,5 +1,5 @@
-from src.athena.base.io import get_str
-from src.athena.base.io import put_strln
+from src.entoli.base.io import get_str
+from src.entoli.base.io import put_strln
 
 
 

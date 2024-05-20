@@ -7,8 +7,8 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from athena.base.io import Io, put_strln, get_str
-from athena.base.control import delay_for, loop
+from entoli.base.io import Io, put_strln, get_str
+from entoli.base.control import delay_for, loop
 
 
 ask_and_sleep = (

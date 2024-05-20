@@ -8,9 +8,9 @@ sys.path.insert(
 )
 
 
-from athena.base.io import Io
-from athena.prelude import foldl
-from athena.django_dev.py_coding import PyCode, PyIdent, write_py_code
+from entoli.base.io import Io
+from entoli.prelude import foldl
+from entoli.django_dev.py_coding import PyCode, PyIdent, write_py_code
 
 
 package_init_file = PyCode(
@@ -39,8 +39,8 @@ def_greet = PyCode(
         ")",
     ],
     strict_deps=[
-        PyIdent(module=["src", "athena", "base", "io"], qual_name=["put_strln"]),
-        PyIdent(module=["src", "athena", "base", "io"], qual_name=["get_str"]),
+        PyIdent(module=["src", "entoli", "base", "io"], qual_name=["put_strln"]),
+        PyIdent(module=["src", "entoli", "base", "io"], qual_name=["get_str"]),
     ],
     weak_deps=[],
 )

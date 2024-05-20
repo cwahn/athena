@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-"""Tests for `athena` package."""
+"""Tests for `entoli` package."""
 
 import pytest
 
 
-from athena import athena
+from entoli import entoli
 
 
 @pytest.fixture

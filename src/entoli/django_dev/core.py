@@ -1,8 +1,8 @@
 # Prerequsites: In venv with Django installed, run the following commands:
 
 from pathlib import Path
-from athena.base.io import Io
-from athena.system import call_command
+from entoli.base.io import Io
+from entoli.system import call_command
 
 
 # def start_project(project_name: str) -> Io[None]:

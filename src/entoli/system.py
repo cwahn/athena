@@ -5,7 +5,7 @@ import subprocess
 from typing import IO, List, Tuple, Union
 
 
-from athena.base.maybe import Just, Maybe, Nothing
+from entoli.base.maybe import Just, Maybe, Nothing
 
 from .base.io import Io
 

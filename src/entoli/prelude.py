@@ -1,7 +1,7 @@
 from typing import Tuple, TypeVar, Iterable, Callable, Optional, Iterator
 import functools
 
-from athena.base.seq import Seq
+from entoli.base.seq import Seq
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")

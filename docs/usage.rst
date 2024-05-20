@@ -2,6 +2,6 @@
 Usage
 =====
 
-To use Athena in a project::
+To use Entoli in a project::
 
-    import athena
+    import entoli

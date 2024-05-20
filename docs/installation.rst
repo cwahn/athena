@@ -8,13 +8,13 @@ Installation
 Stable release
 --------------
 
-To install Athena, run this command in your terminal:
+To install Entoli, run this command in your terminal:
 
 .. code-block:: console
 
-    $ pip install athena
+    $ pip install entoli
 
-This is the preferred method to install Athena, as it will always install the most recent stable release.
+This is the preferred method to install Entoli, as it will always install the most recent stable release.
 
 If you don't have `pip`_ installed, this `Python installation guide`_ can guide
 you through the process.
@@ -26,19 +26,19 @@ you through the process.
 From sources
 ------------
 
-The sources for Athena can be downloaded from the `Github repo`_.
+The sources for Entoli can be downloaded from the `Github repo`_.
 
 You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/cwahn/athena
+    $ git clone git://github.com/cwahn/entoli
 
 Or download the `tarball`_:
 
 .. code-block:: console
 
-    $ curl -OJL https://github.com/cwahn/athena/tarball/master
+    $ curl -OJL https://github.com/cwahn/entoli/tarball/master
 
 Once you have a copy of the source, you can install it with:
 
@@ -47,5 +47,5 @@ Once you have a copy of the source, you can install it with:
     $ python setup.py install
 
 
-.. _Github repo: https://github.com/cwahn/athena
-.. _tarball: https://github.com/cwahn/athena/tarball/master
+.. _Github repo: https://github.com/cwahn/entoli
+.. _tarball: https://github.com/cwahn/entoli/tarball/master
