@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, Callable, Protocol, TypeVar
 
 from .typeclass import Monad
@@ -38,9 +39,9 @@ class _Maybe(Monad[_A], Protocol[_A]):
     def unwrap(self) -> _A: ...
 
 
+@dataclass
 class Just(_Maybe[_A]):
-    def __init__(self, value: _A):
-        self.value = value
+    value: _A
 
     def __repr__(self) -> str:
         return f"Just {self.value}"
@@ -123,7 +124,7 @@ class Nothing(_Maybe[Any]):
 
     def unwrap(self) -> Any:
         raise ValueError("Nothing.unwrap: cannot unwrap Nothing")
-    
+
 
 Maybe = Just[_A] | Nothing
 

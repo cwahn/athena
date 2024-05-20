@@ -1,18 +1,14 @@
-# Compilation takes dependency graph and generates a Io
-
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from shlex import join
-from typing import Callable, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
-from athena.base.io import Io
+from athena.base.io import Io, put_strln
 from athena.base.maybe import Just, Maybe, Nothing
 from athena.prelude import (
     concat,
     foldl,
     for_each,
-    intercalate,
     sort_on,
     map,
     filter,
@@ -38,8 +34,7 @@ class PyIdent:
         return f"from {self.fully_qualified_name()} import {self.qual_name[-1]}"
 
 
-# 지정되어야 하는 dependency 는 code의 종류마다 다르다.
-# 이걸 자동으로 지정해주기는 어렵다.
+# Compilation takes dependency graph and generates a Io
 
 # # This could be seen as a node of a graph
 # @dataclass
@@ -255,17 +250,6 @@ def parse_idents(lines: List[str]) -> Tuple[Dict[str, PyIdent], Dict[str, PyIden
 
 
 def existing_idents(path: Path) -> Io[Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]]:
-    # Collect all the identifiers defined in the module if file exists
-
-    # def _inner(exsits: bool) -> Io[Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]]:
-    #     if not exsits:
-    #         return Io(lambda: (dict(), dict()))
-    #     else:
-    #         return read_file(path).map(
-    #             lambda string: (lines := string.split("\n"), parse_idents(lines))[-1]
-    #         )
-
-    # return file_exists(path).and_then(_inner)
     return read_file(path).map(
         lambda string: (lines := string.split("\n"), parse_idents(lines))[-1]
     )
@@ -298,13 +282,6 @@ def import_as(
 
 
 def import_line(ident: PyIdent, import_as: str) -> str:
-    # return f"from {ident.module} import {ident.qual_name[-1]} as {import_as}"
-    # if it is a module, import the module
-    # if module with the same import_as just import module
-    # otherwise import the module as import_as
-    # if item in module, from module import item ,
-    # if item with the same import_as, from module import item
-
     is_module = len(ident.qual_name) == 0
     if is_module:
         need_as = ".".join(ident.module) != import_as
@@ -373,7 +350,8 @@ def write_py_code(py_code: PyCode) -> Io[None]:
     file_path = py_code.ident.file_path()
 
     return (
-        file_exists(file_path)
+        put_strln(f"\nWriting {py_code.ident.qual_name } to {file_path}\n")
+        .then(file_exists(file_path))
         .and_then(
             lambda exists: Io.pure(None)
             if exists

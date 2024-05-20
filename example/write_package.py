@@ -7,7 +7,10 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from athena.django_dev.compile import PyCode, PyIdent, write_py_code
+
+from athena.base.io import Io
+from athena.prelude import foldl
+from athena.django_dev.py_coding import PyCode, PyIdent, write_py_code
 
 
 package_init_file = PyCode(
@@ -54,12 +57,10 @@ run_greet = PyCode(
     weak_deps=[],
 )
 
-# write = write_py_code(def_greet).then(write_py_code(run_greet))
-write = (
-    write_py_code(package_init_file)
-    .then(write_py_code(module_init_file))
-    .then(write_py_code(def_greet))
-    .then(write_py_code(run_greet))
+write = foldl(
+    lambda acc, code: acc.then(write_py_code(code)),
+    Io.pure(None),
+    [package_init_file, module_init_file, def_greet, run_greet],
 )
 
 

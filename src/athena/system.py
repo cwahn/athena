@@ -1,6 +1,11 @@
+from datetime import datetime
+import os
 from pathlib import Path
 import subprocess
-from typing import List, Tuple, Union
+from typing import IO, List, Tuple, Union
+
+
+from athena.base.maybe import Just, Maybe, Nothing
 
 from .base.io import Io
 
@@ -59,9 +64,17 @@ def remove_dir_rec(path: Path) -> Io[None]:
 
 # todo
 
-# getPermissions
-# setPermissions
-# getModificationTime
+
+def get_permissions(path: Path) -> Io[os.stat_result]:
+    return Io(lambda: path.stat())
+
+
+def set_permissions(path: Path, mode: int) -> Io[None]:
+    return Io(lambda: path.chmod(mode))
+
+
+def get_modification_time(path: Path) -> Io[datetime]:
+    return Io(lambda: datetime.fromtimestamp(path.stat().st_mtime))
 
 
 # Shell operations
@@ -122,31 +135,82 @@ def read_process_with_exit_code(
     return Io(_inner)
 
 
-# todo
+def proc(command: str) -> Io[subprocess.Popen]:
+    def _inner() -> subprocess.Popen:
+        return subprocess.Popen(
+            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
-# createProcess
-# proc
-# shell
-# waitForProcess
-# terminateProcess
-# getProcessExitCode
+    return Io(_inner)
 
-# Example usage
-if __name__ == "__main__":
-    # Running a process and capturing output
-    try:
-        output = read_process("echo", ["Hello, Haskell!"]).action()
-        print(f"Process Output: {output}")
-    except subprocess.CalledProcessError as e:
-        print(f"Process failed with error: {e}")
 
-    # Running a process and capturing output and exit code
-    try:
-        exit_code, stdout, stderr = read_process_with_exit_code(
-            "ls", ["non_existing_directory"]
-        ).action()
-        print(f"Exit Code: {exit_code}")
-        print(f"Standard Output: {stdout}")
-        print(f"Standard Error: {stderr}")
-    except subprocess.CalledProcessError as e:
-        print(f"Process failed with error: {e}")
+def shell(command: str) -> Io[None]:
+    def _inner() -> None:
+        result = subprocess.run(command, shell=True)
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, command)
+
+    return Io(_inner)
+
+
+def terminate_process(process: subprocess.Popen) -> Io[None]:
+    return Io(lambda: process.terminate())
+
+
+def get_process_exit_code(process: subprocess.Popen) -> Io[Maybe[int]]:
+    def _inner() -> Maybe[int]:
+        if code := process.poll() is None:
+            return Nothing()
+        else:
+            return Just(code)
+
+    return Io(_inner)
+
+
+# Shell interaction functions
+
+
+def create_process(command: str) -> Io[Tuple[Maybe[IO[bytes]], Maybe[IO[bytes]], Maybe[IO[bytes]], subprocess.Popen]]:
+    def _inner() -> Tuple[Maybe, Maybe, Maybe, subprocess.Popen]:
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdin = Just(process.stdin) if process.stdin else Nothing()
+        stdout = Just(process.stdout) if process.stdout else Nothing()
+        stderr = Just(process.stderr) if process.stderr else Nothing()
+        return (stdin, stdout, stderr, process)
+
+    return Io(_inner)
+
+
+def h_put_str_ln(handle: IO[bytes], string: str) -> Io[None]:
+    def _inner():
+        handle.write((string + "\n").encode())
+        handle.flush()
+
+    return Io(_inner)
+
+
+def h_get_line(handle: IO[bytes]) -> Io[str]:
+    def _inner() -> str:
+        return handle.readline().strip().decode()
+
+    return Io(_inner)
+
+
+def h_get_contents(handle: IO[bytes]) -> Io[str]:
+    def _inner():
+        return handle.read().decode()
+
+    return Io(_inner)
+
+
+def wait_for_process(process: subprocess.Popen) -> Io[int]:
+    def _inner() -> int:
+        return process.wait()
+
+    return Io(_inner)
