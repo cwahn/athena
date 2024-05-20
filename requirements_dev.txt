@@ -8,6 +8,7 @@ coverage==4.5.4
 distlib==0.3.8
 docutils==0.20.1
 filelock==3.14.0
+forbiddenfruit==0.1.4
 idna==3.7
 imagesize==1.4.1
 importlib_metadata==7.1.0
