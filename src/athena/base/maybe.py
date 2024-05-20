@@ -121,7 +121,7 @@ class Nothing(_Maybe[Any]):
     def then(self, x: Nothing) -> _Maybe[Any]:
         return Nothing()
 
-    def unwrap(self) -> None:
+    def unwrap(self) -> Any:
         raise ValueError("Nothing.unwrap: cannot unwrap Nothing")
     
 
