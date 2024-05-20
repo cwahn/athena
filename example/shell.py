@@ -15,6 +15,7 @@ from entoli.system import (
     create_process,
     h_get_line,
     h_put_str_ln,
+    shell,
     write_file,
 )
 
@@ -47,7 +48,7 @@ def _main(tpl) -> Io[None]:
             raise RuntimeError("Failed to create process")
 
 
-main = create_process("/bin/zsh").and_then(_main)
+main = create_process(shell("/bin/zsh")).and_then(_main) 
 
 if __name__ == "__main__":
     main.action()

@@ -38,6 +38,8 @@ class _Maybe(Monad[_A], Protocol[_A]):
     # @abstractmethod
     def unwrap(self) -> _A: ...
 
+    def unwrap_or(self, default: _A) -> _A: ...
+
 
 @dataclass
 class Just(_Maybe[_A]):
@@ -83,6 +85,9 @@ class Just(_Maybe[_A]):
     def unwrap(self) -> _A:
         return self.value
 
+    def unwrap_or(self, default: _A) -> _A:
+        return self.value
+
 
 class Nothing(_Maybe[Any]):
     def __init__(self) -> None:
@@ -124,6 +129,9 @@ class Nothing(_Maybe[Any]):
 
     def unwrap(self) -> Any:
         raise ValueError("Nothing.unwrap: cannot unwrap Nothing")
+
+    def unwrap_or(self, default: _A) -> _A:
+        return default
 
 
 Maybe = Just[_A] | Nothing

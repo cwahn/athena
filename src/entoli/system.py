@@ -1,8 +1,9 @@
+from dataclasses import dataclass, field
 from datetime import datetime
 import os
 from pathlib import Path
 import subprocess
-from typing import IO, List, Tuple, Union
+from typing import IO, Any, Dict, List, Tuple, Union
 
 
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -135,22 +136,22 @@ def read_process_with_exit_code(
     return Io(_inner)
 
 
-def proc(command: str) -> Io[subprocess.Popen]:
-    def _inner() -> subprocess.Popen:
-        return subprocess.Popen(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+# def proc(command: str) -> Io[subprocess.Popen]:
+#     def _inner() -> subprocess.Popen:
+#         return subprocess.Popen(
+#             command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+#         )
 
-    return Io(_inner)
+#     return Io(_inner)
 
 
-def shell(command: str) -> Io[None]:
-    def _inner() -> None:
-        result = subprocess.run(command, shell=True)
-        if result.returncode != 0:
-            raise subprocess.CalledProcessError(result.returncode, command)
+# def shell(command: str) -> Io[None]:
+#     def _inner() -> None:
+#         result = subprocess.run(command, shell=True)
+#         if result.returncode != 0:
+#             raise subprocess.CalledProcessError(result.returncode, command)
 
-    return Io(_inner)
+#     return Io(_inner)
 
 
 def terminate_process(process: subprocess.Popen) -> Io[None]:
@@ -169,15 +170,68 @@ def get_process_exit_code(process: subprocess.Popen) -> Io[Maybe[int]]:
 
 # Shell interaction functions
 
+# s
 
-def create_process(command: str) -> Io[Tuple[Maybe[IO[bytes]], Maybe[IO[bytes]], Maybe[IO[bytes]], subprocess.Popen]]:
-    def _inner() -> Tuple[Maybe, Maybe, Maybe, subprocess.Popen]:
+
+@dataclass
+class CreateProcess:
+    command: str
+    use_shell: bool = True
+    cwd: Maybe[str] = Nothing()
+    env: Maybe[Dict[str, str]] = Nothing()
+    std_in: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
+    std_out: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
+    std_err: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
+
+
+# shell function
+def shell(command: str) -> CreateProcess:
+    return CreateProcess(command=command, use_shell=True)
+
+
+# proc function
+def proc(path: str, args: List[str]) -> CreateProcess:
+    return CreateProcess(command=f"{path} {' '.join(args)}", use_shell=False)
+
+
+# create_process function
+# def create_process(
+#     proc: CreateProcess,
+# ) -> Io[Tuple[Maybe, Maybe, Maybe, subprocess.Popen]]:
+#     def _inner() -> Tuple[Maybe, Maybe, Maybe, subprocess.Popen]:
+#         process = subprocess.Popen(
+#             proc.command,
+#             shell=proc.use_shell,
+#             cwd=proc.cwd,
+#             env=proc.env,
+#             stdin=proc.std_in,
+#             stdout=proc.std_out,
+#             stderr=proc.std_err,
+#             text=True,  # Ensures text mode (string IO)
+#         )
+#         stdin = Just(process.stdin) if process.stdin else Nothing()
+#         stdout = Just(process.stdout) if process.stdout else Nothing()
+#         stderr = Just(process.stderr) if process.stderr else Nothing()
+#         return (stdin, stdout, stderr, process)
+
+#     return Io(_inner)
+
+
+def create_process(
+    proc: CreateProcess,
+) -> Io[Tuple[Maybe[IO[str]], Maybe[IO[str]], Maybe[IO[str]], subprocess.Popen]]:
+    def _inner() -> (
+        Tuple[Maybe[IO[str]], Maybe[IO[str]], Maybe[IO[str]], subprocess.Popen]
+    ):
         process = subprocess.Popen(
-            command,
-            shell=True,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            proc.command,
+            shell=proc.use_shell,
+            cwd=proc.cwd.unwrap_or(None),  # type: ignore
+            env=proc.env.unwrap_or(None),  # type: ignore
+            stdin=proc.std_in.unwrap_or(subprocess.PIPE),
+            stdout=proc.std_out.unwrap_or(subprocess.PIPE),
+            stderr=proc.std_err.unwrap_or(subprocess.PIPE),
+            text=True,  # Ensures text mode (string IO)
         )
         stdin = Just(process.stdin) if process.stdin else Nothing()
         stdout = Just(process.stdout) if process.stdout else Nothing()
@@ -187,24 +241,24 @@ def create_process(command: str) -> Io[Tuple[Maybe[IO[bytes]], Maybe[IO[bytes]],
     return Io(_inner)
 
 
-def h_put_str_ln(handle: IO[bytes], string: str) -> Io[None]:
+def h_put_str_ln(handle: IO[str], string: str) -> Io[None]:
     def _inner():
-        handle.write((string + "\n").encode())
+        handle.write(string + "\n")
         handle.flush()
 
     return Io(_inner)
 
 
-def h_get_line(handle: IO[bytes]) -> Io[str]:
+def h_get_line(handle: IO[str]) -> Io[str]:
     def _inner() -> str:
-        return handle.readline().strip().decode()
+        return handle.readline().strip()
 
     return Io(_inner)
 
 
-def h_get_contents(handle: IO[bytes]) -> Io[str]:
+def h_get_contents(handle: IO[str]) -> Io[str]:
     def _inner():
-        return handle.read().decode()
+        return handle.read()
 
     return Io(_inner)
 
