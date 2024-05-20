@@ -1,4 +1,5 @@
 from datetime import timedelta
+from pdb import run
 import sys
 import os
 
@@ -10,14 +11,39 @@ sys.path.insert(
 
 from athena.django_dev.compile import PyCode, PyIdent, write_py_code
 
-py_code = PyCode(
-    ident=PyIdent(module=["auto_generated", "hello_world"], qual_name=["main"]),
-    code=["print('Hello, world!')"],
-    strict_deps=[PyIdent(module=["sys"], qual_name=["path"])],
+# py_code = PyCode(
+#     ident=PyIdent(module=["auto_generated", "hello_world"], qual_name=["main"]),
+#     code=["print('Hello, world!')"],
+#     strict_deps=[PyIdent(module=["sys"], qual_name=["path"])],
+#     weak_deps=[],
+# )
+
+def_greet = PyCode(
+    ident=PyIdent(module=["auto_generated", "definitions"], qual_name=["greet"]),
+    code=[
+        "greet = (",
+        "    put_strln('What is your name?')",
+        "    .then(get_str)",
+        "    .and_then(lambda name: put_strln(f'Hello, {name}!'))",
+        ")",
+    ],
+    strict_deps=[
+        PyIdent(module=["athena", "base", "io"], qual_name=["put_strln"]),
+        PyIdent(module=["athena", "base", "io"], qual_name=["get_str"]),
+    ],
     weak_deps=[],
 )
 
-write = write_py_code(py_code)
+run_greet = PyCode(
+    ident=PyIdent(module=["auto_generated", "hello_world"], qual_name=["run_greet"]),
+    code=["if __name__ == '__main__':", "    greet.action()"],
+    strict_deps=[
+        PyIdent(module=["auto_generated", "definitions"], qual_name=["greet"])
+    ],
+    weak_deps=[],
+)
+
+write = write_py_code(def_greet).then(write_py_code(run_greet))
 
 if __name__ == "__main__":
     write.action()

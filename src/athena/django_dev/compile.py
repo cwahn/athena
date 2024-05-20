@@ -356,19 +356,12 @@ def append_definition_lines(path: Path, def_lines: List[str]) -> Io[None]:
     def _inner(content: str) -> Io[None]:
         lines = content.split("\n")
         # Find the end of the import statements
-        import_end = 0
-        for i, line in enumerate(lines):
-            if line.startswith("import ") or line.startswith("from "):
-                import_end = i + 1
-            elif line.strip() == "":
-                continue
-            else:
-                break
 
         # Insert the new import line at the end of the imports
-        # lines.insert(import_end, import_line)
-        for_each(lambda line: lines.insert(import_end, line), def_lines)
-        new_content = "\n".join(lines)
+
+        new_lines = concat([lines, ["\n"], def_lines])
+
+        new_content = "\n".join(new_lines)
         return write_file(path, new_content)
 
     return read_file(path).and_then(_inner)

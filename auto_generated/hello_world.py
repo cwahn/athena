@@ -1,5 +1,5 @@
-from sys import path
-from sys import path as sys_path
-print('Hello, world!')
+from definitions import greet
 
-print("Hello, world!")
+
+if __name__ == "__main__":
+    greet.action()
