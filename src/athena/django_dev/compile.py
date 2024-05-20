@@ -275,10 +275,14 @@ def import_as(
     imported_idents: Dict[str, PyIdent],
     defined_idents: Dict[str, PyIdent],
     ident: PyIdent,
-) -> str:
+) -> Maybe[str]:
+    # If the same one is already imported, skip
+    if ident in imported_idents.values():
+        return Nothing()
+
     base_name = ident.qual_name[-1]
     if base_name not in defined_idents and base_name not in imported_idents:
-        return base_name
+        return Just(base_name)
 
     # Add module parts to the base name to avoid collision
     for i in range(1, len(ident.module) + 1):
@@ -287,10 +291,10 @@ def import_as(
             qualified_name not in defined_idents
             and qualified_name not in imported_idents
         ):
-            return qualified_name
+            return Just(qualified_name)
 
     # If still colliding, return fully qualified name
-    return ident.fully_qualified_name()
+    return Just(ident.fully_qualified_name())
 
 
 def import_line(ident: PyIdent, import_as: str) -> str:
@@ -323,9 +327,10 @@ def deps_import_lines(
 ) -> List[str]:
     return list(
         map(
-            lambda dep: import_line(
-                dep, import_as(existing_idents, defined_idents, dep)
-            ),
+            lambda dep: (
+                import_as_ := import_as(existing_idents, defined_idents, dep),
+                import_line(dep, import_as_.unwrap()) if import_as_ else "",
+            )[-1],
             py_code.strict_deps + py_code.weak_deps,
         )
     )
@@ -355,9 +360,6 @@ def append_import_lines(path: Path, import_lines: List[str]) -> Io[None]:
 def append_definition_lines(path: Path, def_lines: List[str]) -> Io[None]:
     def _inner(content: str) -> Io[None]:
         lines = content.split("\n")
-        # Find the end of the import statements
-
-        # Insert the new import line at the end of the imports
 
         new_lines = concat([lines, ["\n"], def_lines])
 
