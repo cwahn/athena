@@ -1,4 +1,4 @@
-Welcome to Athena's documentation!
+Welcome to Entoli's documentation!
 ======================================
 
 .. toctree::

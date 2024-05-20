@@ -1,4 +1,4 @@
-* Athena version:
+* Entoli version:
 * Python version:
 * Operating System:
 

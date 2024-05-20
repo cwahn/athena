@@ -1,5 +1,5 @@
-"""Console script for athena."""
-import athena
+"""Console script for entoli."""
+import entoli
 
 import typer
 from rich.console import Console
@@ -10,9 +10,9 @@ console = Console()
 
 @app.command()
 def main():
-    """Console script for athena."""
+    """Console script for entoli."""
     console.print("Replace this message by putting your code into "
-               "athena.cli.main")
+               "entoli.cli.main")
     console.print("See Typer documentation at https://typer.tiangolo.com/")
     
 

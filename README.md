@@ -1,2 +1,2 @@
-# athena
+# entoli
 A functional Python library

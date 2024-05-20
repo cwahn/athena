@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "athena"
+name = "entoli"
 version = "0.1.0"
 description = "A functional Python library"
 readme = "README.rst"
@@ -31,9 +31,9 @@ dev = [
 
 [project.urls]
 
-bugs = "https://github.com/cwahn/athena/issues"
-changelog = "https://github.com/cwahn/athena/blob/master/changelog.md"
-homepage = "https://github.com/cwahn/athena"
+bugs = "https://github.com/cwahn/entoli/issues"
+changelog = "https://github.com/cwahn/entoli/blob/master/changelog.md"
+homepage = "https://github.com/cwahn/entoli"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

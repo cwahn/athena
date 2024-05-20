@@ -1,1 +1,1 @@
-"""Unit test package for athena."""
+"""Unit test package for entoli."""
