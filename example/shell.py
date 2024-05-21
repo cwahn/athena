@@ -2,24 +2,23 @@ import sys
 import os
 from pathlib import Path
 
+
 # Add the src directory to the Python path
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
 from entoli.base.maybe import Just
-from entoli.prelude import foldl
-from entoli.system import (
-    call_command,
-    create_dir,
+from entoli.process import (
     create_process,
+    h_get_contents,
     h_get_line,
     h_put_str_ln,
     shell,
-    write_file,
+    terminate_process,
+    wait_for_process,
 )
-
-from entoli.base.io import Io, put_strln, get_str
+from entoli.base.io import Io, put_strln
 
 
 def _main(tpl) -> Io[None]:
@@ -34,6 +33,11 @@ def _main(tpl) -> Io[None]:
                 .then(h_put_str_ln(stdin, "pwd"))
                 .then(h_get_line(stdout))
                 .and_then(lambda pwd: put_strln(f"pwd: {pwd}"))
+                .then(terminate_process(process))
+                .then(wait_for_process(process))
+                .and_then(lambda exit_code: put_strln(f"exit code: {exit_code}"))
+                .then(h_get_contents(stdout))
+                .and_then(lambda out: put_strln(f"stdout: {out}"))
             )
         case _:
             raise RuntimeError("Failed to create process")
