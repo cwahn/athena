@@ -1,3 +1,4 @@
+from pathlib import Path
 import subprocess
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -64,7 +65,7 @@ def read_process_with_exit_code(
 class CreateProcess:
     command: str
     use_shell: bool = True
-    cwd: Maybe[str] = Nothing()
+    cwd: Maybe[Path] = Nothing()
     env: Maybe[Dict[str, str]] = Nothing()
     std_in: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
     std_out: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
@@ -93,9 +94,9 @@ def create_process(
             shell=proc.use_shell,
             cwd=proc.cwd.unwrap_or(None),  # type: ignore
             env=proc.env.unwrap_or(None),  # type: ignore
-            stdin=proc.std_in.unwrap_or(None),  # type: ignore
-            stdout=proc.std_out.unwrap_or(None),  # type: ignore
-            stderr=proc.std_err.unwrap_or(None),  # type: ignore
+            stdin=proc.std_in.unwrap_or(None),
+            stdout=proc.std_out.unwrap_or(None),
+            stderr=proc.std_err.unwrap_or(None),
             text=True,  # Ensures binary mode (bytes IO)
         )
 
