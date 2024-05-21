@@ -233,38 +233,38 @@ def create_process(
             stderr=proc.std_err.unwrap_or(subprocess.PIPE),
             text=True,  # Ensures text mode (string IO)
         )
-        stdin = Just(process.stdin) if process.stdin else Nothing()
-        stdout = Just(process.stdout) if process.stdout else Nothing()
-        stderr = Just(process.stderr) if process.stderr else Nothing()
-        return (stdin, stdout, stderr, process)
+        mb_stdin = Just(process.stdin) if process.stdin else Nothing()
+        mb_stdout = Just(process.stdout) if process.stdout else Nothing()
+        mb_stderr = Just(process.stderr) if process.stderr else Nothing()
+        return (mb_stdin, mb_stdout, mb_stderr, process)
 
     return Io(_inner)
 
 
 def h_put_str_ln(handle: IO[str], string: str) -> Io[None]:
-    def _inner():
+    def _h_put_str_ln():
         handle.write(string + "\n")
         handle.flush()
 
-    return Io(_inner)
+    return Io(_h_put_str_ln)
 
 
 def h_get_line(handle: IO[str]) -> Io[str]:
-    def _inner() -> str:
+    def _h_get_line() -> str:
         return handle.readline().strip()
 
-    return Io(_inner)
+    return Io(_h_get_line)
 
 
 def h_get_contents(handle: IO[str]) -> Io[str]:
-    def _inner():
+    def _h_get_contents():
         return handle.read()
 
-    return Io(_inner)
+    return Io(_h_get_contents)
 
 
 def wait_for_process(process: subprocess.Popen) -> Io[int]:
-    def _inner() -> int:
+    def _wait_for_process() -> int:
         return process.wait()
 
-    return Io(_inner)
+    return Io(_wait_for_process)

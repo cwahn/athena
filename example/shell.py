@@ -20,15 +20,6 @@ from entoli.system import (
 )
 
 from entoli.base.io import Io, put_strln, get_str
-from entoli.base.control import delay_for, loop
-
-
-# make_build_dir = create_dir(Path("build"))
-# start_project = call_command("cd build && django-admin startproject mysite")
-
-# main = foldl(
-#     lambda acc, io: acc.then(io), Io.pure(None), [make_build_dir, start_project]
-# )
 
 
 def _main(tpl) -> Io[None]:
@@ -48,7 +39,7 @@ def _main(tpl) -> Io[None]:
             raise RuntimeError("Failed to create process")
 
 
-main = create_process(shell("/bin/zsh")).and_then(_main) 
+main = create_process(shell("/bin/zsh")).and_then(_main)
 
 if __name__ == "__main__":
     main.action()
