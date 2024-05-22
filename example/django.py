@@ -3,8 +3,6 @@ import os
 from pathlib import Path
 from typing import Any, Tuple
 
-from entoli.django_dev.core import DjangoApp, DjangoProject
-
 
 # Add the src directory to the Python path
 sys.path.insert(
@@ -20,6 +18,14 @@ from entoli.process import (
     wait_for_process,
 )
 from entoli.base.io import Io, put_strln
+
+from entoli.django_dev.core import (
+    BooleanField,
+    CharField,
+    DjangoApp,
+    DjangoModel,
+    DjangoProject,
+)
 
 flake_content = """
 {
@@ -69,7 +75,9 @@ flake_content = """
 }
 
 """
-flake_path = Path(__file__).parent.absolute() / "build"
+
+# flake_path = Path(__file__).parent.absolute() / "build"
+flake_path = Path.home() / "build"
 
 
 # Call nix d
@@ -96,13 +104,32 @@ def flake_call(flake_path: Path, cmd: str) -> Io[Tuple[int, str, str]]:
     return create_process(proc_spec).and_then(_inner)
 
 
-some_app = DjangoApp(
-    
+model_a = DjangoModel(
+    name="ModelA",
+    fields={
+        "name": CharField(max_length=100),
+        "is_active": BooleanField(),
+    },
 )
 
-another_app = DjangoApp(
-    
+model_b = DjangoModel(
+    name="ModelB",
+    fields={
+        "name": CharField(max_length=100),
+    },
 )
+
+model_c = DjangoModel(
+    name="ModelC",
+    fields={
+        "is_active": BooleanField(),
+    },
+)
+
+
+some_app = DjangoApp(name_slug="auto_app_0", models=[model_a, model_b])
+
+another_app = DjangoApp(name_slug="auto_app_1", models=[model_c])
 
 django_project = DjangoProject(
     name="auto_project",
@@ -118,7 +145,6 @@ main = (
     .then(write_file(flake_path / ".envrc", "use flake"))
     .then(file_exists(flake_path / ".envrc"))
     .and_then(lambda res: put_strln(f"Envrc file exists: {res}"))
-    .then(flake_call(flake_path, "pwd && which python"))
     .then(
         flake_call(
             flake_path,
@@ -145,6 +171,8 @@ main = (
         .then(put_strln(f"stdout: {res[1]}"))
         .then(put_strln(f"stderr: {res[2]}"))
     )
+    .then(django_project.write())
+    .then(put_strln("Django project created!"))
 )
 
 if __name__ == "__main__":

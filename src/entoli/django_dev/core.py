@@ -27,7 +27,7 @@ class DjangoField(Protocol):
 
 
 @dataclass
-class BooleanField:
+class BooleanField(DjangoField):
     null: bool = False
     default: bool = False
     blank: bool = False
@@ -45,10 +45,10 @@ class BooleanField:
 
 
 @dataclass
-class CharField:
+class CharField(DjangoField):
     max_length: int
     null: bool = False
-    default: str = ""
+    default: bool = False
     blank: bool = False
     mb_verbose_name: Maybe[str] = Nothing()
     mb_help_text: Maybe[str] = Nothing()
@@ -77,7 +77,7 @@ class DjangoModel:
                 path,
                 "\n".join(
                     [
-                        f"class {self.name}(models.Model):",
+                        f"\n\nclass {self.name}(models.Model):",
                         *[
                             f"    {field_name} = {field.to_py_snippet()}"
                             for field_name, field in self.fields.items()
@@ -98,7 +98,7 @@ class DjangoModel:
                 path,
                 "\n".join(
                     [
-                        f"class {self.name}Form(forms.ModelForm):",
+                        f"\n\nclass {self.name}Form(forms.ModelForm):",
                         "    class Meta:",
                         f"        model = {self.name}",
                         "        fields = '__all__'",
@@ -118,12 +118,12 @@ class DjangoModel:
             ident=PyIdent(module=[project_name, app_name, "admin"], qual_name=[]),
             code=lambda path: append_file(
                 path,
-                f"admin.site.register({self.name})",
+                f"\n\nadmin.site.register({self.name})",
             ),
             strict_deps=[
                 PyIdent(
-                    module=["django", "contrib", "admin"],
-                    qual_name=["site", "register"],
+                    module=["django", "contrib"],
+                    qual_name=["admin"],
                 ),
                 PyIdent(
                     module=[project_name, app_name, "models"], qual_name=[self.name]
@@ -152,7 +152,7 @@ class DjangoApp:
             # todo Futher refinement for substitution logic
             code=lambda path: append_file(
                 path,
-                f"INSTALLED_APPS += ['{self.name_slug}']",
+                f"\n\nINSTALLED_APPS += ['{self.name_slug}']",
             ),
             strict_deps=[],
             weak_deps=[],
@@ -162,7 +162,7 @@ class DjangoApp:
             ident=PyIdent(module=[project_name, "urls"], qual_name=[]),
             code=lambda path: append_file(
                 path,
-                f"urlpatterns += [path('{self.name_slug}/', include('{self.name_slug}.urls'))]",
+                f"\n\nurlpatterns += [path('{self.name_slug}/', include('{self.name_slug}.urls'))]",
             ),
             strict_deps=[
                 PyIdent(module=["django", "urls", "conf"], qual_name=["include"]),
