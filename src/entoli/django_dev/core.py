@@ -35,10 +35,10 @@ class BooleanField(DjangoField):
     mb_help_text: Maybe[str] = Nothing()
 
     def to_py_snippet(self) -> str:
-        return f"BooleanField(null={self.null}, default={self.default}, blank={self.blank}, verbose_name={self.mb_verbose_name}, help_text={self.mb_help_text})"
+        return f"models.BooleanField(null={self.null}, default={self.default}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else None})"
 
     def strict_deps(self) -> Iterable[PyIdent]:
-        return [PyIdent(module=["django", "db", "models"], qual_name=["BooleanField"])]
+        return [PyIdent(module=["django", "db", "models"], qual_name=[])]
 
     def weak_deps(self) -> Iterable[PyIdent]:
         return []
@@ -54,10 +54,10 @@ class CharField(DjangoField):
     mb_help_text: Maybe[str] = Nothing()
 
     def to_py_snippet(self) -> str:
-        return f"CharField(max_length={self.max_length}, null={self.null}, default={self.default}, blank={self.blank}, verbose_name={self.mb_verbose_name}, help_text={self.mb_help_text})"
+        return f"models.CharField(max_length={self.max_length}, null={self.null}, default={self.default}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else None})"
 
     def strict_deps(self) -> Iterable[PyIdent]:
-        return [PyIdent(module=["django", "db", "models"], qual_name=["CharField"])]
+        return [PyIdent(module=["django", "db", "models"], qual_name=[])]
 
     def weak_deps(self) -> Iterable[PyIdent]:
         return []
@@ -77,7 +77,7 @@ class DjangoModel:
                 path,
                 "\n".join(
                     [
-                        f"\n\nclass {self.name}(models.Model):",
+                        f"\nclass {self.name}(models.Model):",
                         *[
                             f"    {field_name} = {field.to_py_snippet()}"
                             for field_name, field in self.fields.items()
@@ -98,7 +98,7 @@ class DjangoModel:
                 path,
                 "\n".join(
                     [
-                        f"\n\nclass {self.name}Form(forms.ModelForm):",
+                        f"\nclass {self.name}Form(forms.ModelForm):",
                         "    class Meta:",
                         f"        model = {self.name}",
                         "        fields = '__all__'",
@@ -106,7 +106,7 @@ class DjangoModel:
                 ),
             ),
             strict_deps=[
-                PyIdent(module=["django", "forms", "models"], qual_name=["ModelForm"]),
+                PyIdent(module=["django", "forms"], qual_name=[]),
                 PyIdent(
                     module=[project_name, app_name, "models"], qual_name=[self.name]
                 ),
@@ -118,7 +118,7 @@ class DjangoModel:
             ident=PyIdent(module=[project_name, app_name, "admin"], qual_name=[]),
             code=lambda path: append_file(
                 path,
-                f"\n\nadmin.site.register({self.name})",
+                f"\nadmin.site.register({self.name})",
             ),
             strict_deps=[
                 PyIdent(
@@ -148,11 +148,13 @@ class DjangoApp:
         )
 
         add_apps_to_settings = PyCode(
-            ident=PyIdent(module=[project_name, "settings"], qual_name=[]),
+            ident=PyIdent(
+                module=[project_name, project_name, "settings"], qual_name=[]
+            ),
             # todo Futher refinement for substitution logic
             code=lambda path: append_file(
                 path,
-                f"\n\nINSTALLED_APPS += ['{self.name_slug}']",
+                f"\nINSTALLED_APPS += ['{self.name_slug}']",
             ),
             strict_deps=[],
             weak_deps=[],
@@ -162,7 +164,7 @@ class DjangoApp:
             ident=PyIdent(module=[project_name, "urls"], qual_name=[]),
             code=lambda path: append_file(
                 path,
-                f"\n\nurlpatterns += [path('{self.name_slug}/', include('{self.name_slug}.urls'))]",
+                f"\nurlpatterns += [path('{self.name_slug}/', include('{self.name_slug}.urls'))]",
             ),
             strict_deps=[
                 PyIdent(module=["django", "urls", "conf"], qual_name=["include"]),
@@ -183,9 +185,9 @@ class DjangoProject:
 
         return app_codes
 
-    def write(self) -> Io[None]:
+    def write(self, dir_path: Path) -> Io[None]:
         return foldl(
-            lambda acc, code: acc.then(write_py_code(code)),
+            lambda acc, code: acc.then(write_py_code(dir_path, code)),
             Io.pure(None),
             self.to_py_codes(),
         )

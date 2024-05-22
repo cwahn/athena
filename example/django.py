@@ -153,6 +153,30 @@ main = (
                     "pip install django",
                     "django-admin --version",
                     "django-admin startproject auto_project",
+                    # "cd auto_project",
+                    # "python manage.py startapp auto_app_0",
+                    # "python manage.py startapp auto_app_1",
+                    # "python manage.py makemigrations",
+                    # "python manage.py migrate",
+                    # "export DJANGO_SUPERUSER_USERNAME=admin",
+                    # "export DJANGO_SUPERUSER_EMAIL=a@a.com",
+                    # "export DJANGO_SUPERUSER_PASSWORD=admin",
+                    # "python manage.py createsuperuser --noinput",
+                ]
+            ),
+        )
+    )
+    .and_then(
+        lambda res: put_strln(f"exit code: {res[0]}")
+        .then(put_strln(f"stdout: {res[1]}"))
+        .then(put_strln(f"stderr: {res[2]}"))
+    )
+    .then(django_project.write(flake_path))
+    .then(
+        flake_call(
+            flake_path,
+            "\n".join(
+                [
                     "cd auto_project",
                     "python manage.py startapp auto_app_0",
                     "python manage.py startapp auto_app_1",
@@ -171,8 +195,6 @@ main = (
         .then(put_strln(f"stdout: {res[1]}"))
         .then(put_strln(f"stderr: {res[2]}"))
     )
-    .then(django_project.write())
-    .then(put_strln("Django project created!"))
 )
 
 if __name__ == "__main__":

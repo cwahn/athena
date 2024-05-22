@@ -25,7 +25,7 @@ class PyIdent:
     module: Iterable[str]
     qual_name: Iterable[str]
 
-    def file_path(self) -> Path:
+    def rel_file_path(self) -> Path:
         path_parts = concat([init(self.module), [last(self.module) + ".py"]])
         return Path(*path_parts)
 
@@ -65,7 +65,7 @@ class PyIdent:
 class PyCode:
     ident: PyIdent
     # code: Iterable[str]
-    code: Callable[[Path], Io[None]] # Assume that the file is already created
+    code: Callable[[Path], Io[None]]  # Assume that the file is already created
     strict_deps: Iterable[PyIdent]
     weak_deps: Iterable[PyIdent]
 
@@ -359,8 +359,9 @@ def append_definition_lines(path: Path, def_lines: Iterable[str]) -> Io[None]:
     return read_file(path).and_then(_inner)
 
 
-def write_py_code(py_code: PyCode) -> Io[None]:
-    file_path = py_code.ident.file_path()
+def write_py_code(dir_path: Path, py_code: PyCode) -> Io[None]:
+    # file_path = py_code.ident.rel_file_path()
+    file_path = dir_path / py_code.ident.rel_file_path()
 
     return (
         put_strln(f"\nWriting {py_code.ident.qual_name } to {file_path}\n")
