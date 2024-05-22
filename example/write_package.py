@@ -58,7 +58,7 @@ run_greet = PyCode(
 )
 
 write = foldl(
-    lambda acc, code: acc._(write_py_code(code)),
+    lambda acc, code: acc.then(write_py_code(code)),
     Io.pure(None),
     [package_init_file, module_init_file, def_greet, run_greet],
 )

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import sys
 import os
 from pathlib import Path
@@ -10,7 +9,6 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from entoli.prelude import foldl
 from entoli.base.maybe import Just
 from entoli.system import create_dir_if_missing, file_exists, write_file
 from entoli.process import (
@@ -69,7 +67,7 @@ flake_content = """
 }
 
 """
-flake_path = Path(__file__).parent.absolute() / "flake_dir"
+flake_path = Path(__file__).parent.absolute() / "build"
 
 
 # Call nix d
@@ -108,17 +106,22 @@ main = (
     .then(
         flake_call(
             flake_path,
-            """
-pip install django
-django-admin --version
-django-admin startproject auto_project
-cd auto_project
-python manage.py startapp auto_app_0
-python manage.py startapp auto_app_1
-python manage.py makemigrations
-python manage.py migrate
-python manage.py createsuperuser --username admin --email a@a.com --noinput
-""",
+            "\n".join(
+                [
+                    "pip install django",
+                    "django-admin --version",
+                    "django-admin startproject auto_project",
+                    "cd auto_project",
+                    "python manage.py startapp auto_app_0",
+                    "python manage.py startapp auto_app_1",
+                    "python manage.py makemigrations",
+                    "python manage.py migrate",
+                    "export DJANGO_SUPERUSER_USERNAME=admin",
+                    "export DJANGO_SUPERUSER_EMAIL=a@a.com",
+                    "export DJANGO_SUPERUSER_PASSWORD=admin",
+                    "python manage.py createsuperuser --noinput",
+                ]
+            ),
         )
     )
     .and_then(
