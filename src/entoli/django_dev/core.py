@@ -116,7 +116,6 @@ class DjangoModel:
 
         admin_add = PyCode(
             ident=PyIdent(module=[project_name, app_name, "admin"], qual_name=[]),
-            # code=[f"admin.site.register({self.name})"],
             code=lambda path: append_file(
                 path,
                 f"admin.site.register({self.name})",
@@ -150,7 +149,6 @@ class DjangoApp:
 
         add_apps_to_settings = PyCode(
             ident=PyIdent(module=[project_name, "settings"], qual_name=[]),
-            # code=[f"INSTALLED_APPS += ['{self.name_slug}']"],
             # todo Futher refinement for substitution logic
             code=lambda path: append_file(
                 path,
@@ -162,7 +160,6 @@ class DjangoApp:
 
         add_app_urls_to_project = PyCode(
             ident=PyIdent(module=[project_name, "urls"], qual_name=[]),
-            # code=[f"path('{self.name_slug}/', include('{self.name_slug}.urls'))"],
             code=lambda path: append_file(
                 path,
                 f"urlpatterns += [path('{self.name_slug}/', include('{self.name_slug}.urls'))]",
@@ -178,11 +175,11 @@ class DjangoApp:
 
 @dataclass
 class DjangoProject:
-    name_slug: str
+    name: str
     apps: Iterable[DjangoApp]
 
     def to_py_codes(self) -> Iterable[PyCode]:
-        app_codes = concat(map(lambda a: a.to_py_codes(self.name_slug), self.apps))
+        app_codes = concat(map(lambda a: a.to_py_codes(self.name), self.apps))
 
         return app_codes
 

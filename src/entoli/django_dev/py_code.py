@@ -26,7 +26,7 @@ class PyIdent:
     qual_name: Iterable[str]
 
     def file_path(self) -> Path:
-        path_parts = concat([init(self.module), last(self.module) + ".py"])
+        path_parts = concat([init(self.module), [last(self.module) + ".py"]])
         return Path(*path_parts)
 
     def fully_qualified_name(self) -> str:
