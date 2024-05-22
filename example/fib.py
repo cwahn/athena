@@ -23,8 +23,8 @@ def fib(n: int) -> int:
 
 io_fib = (
     put_strln("Enter a number:")
-    ._(get_str)
-    .__(lambda s: put_strln(f"The {s}th Fibonacci number is {fib(int(s))}"))
+    .then(get_str)
+    .and_then(lambda s: put_strln(f"The {s}th Fibonacci number is {fib(int(s))}"))
 )
 
 if __name__ == "__main__":

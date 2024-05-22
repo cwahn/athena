@@ -8,17 +8,13 @@ from dataclasses import dataclass
 from xmlrpc.client import Boolean
 from entoli.base.io import Io
 from entoli.base.maybe import Maybe, Nothing
-from entoli.django_dev.py_code import PyCode, PyIdent
-from entoli.prelude import concat, intercalate, map
+from entoli.django_dev.py_code import PyCode, PyIdent, write_py_code
+from entoli.prelude import concat, foldl, intercalate, map
 from entoli.system import append_file, read_file
 
 
 # Prerequsites: In venv with Django installed, run the following commands:
 # A definition will result list of pycodes which will be added to the graph
-
-
-class ToPyCodes(Protocol):
-    def to_py_codes(self) -> Iterable[PyCode]: ...
 
 
 @dataclass
@@ -77,13 +73,6 @@ class DjangoModel:
             ident=PyIdent(
                 module=[project_name, app_name, "models"], qual_name=[self.name]
             ),
-            # code=[
-            #     "class {self.name}(models.Model):",
-            #     *[
-            #         f"    {field_name} = {field.to_py_snippet()}"
-            #         for field_name, field in self.fields.items()
-            #     ],
-            # ],
             code=lambda path: append_file(
                 path,
                 "\n".join(
@@ -105,12 +94,6 @@ class DjangoModel:
                 module=[project_name, app_name, "forms"],
                 qual_name=[f"{self.name}Form"],
             ),
-            # code=[
-            #     "class {self.name}Form(forms.ModelForm):",
-            #     "    class Meta:",
-            #     f"        model = {self.name}",
-            #     "        fields = '__all__'",
-            # ],
             code=lambda path: append_file(
                 path,
                 "\n".join(
@@ -165,10 +148,47 @@ class DjangoApp:
             map(lambda m: m.to_py_codes(project_name, self.name_slug), self.models)
         )
 
-        return model_codes
+        add_apps_to_settings = PyCode(
+            ident=PyIdent(module=[project_name, "settings"], qual_name=[]),
+            # code=[f"INSTALLED_APPS += ['{self.name_slug}']"],
+            # todo Futher refinement for substitution logic
+            code=lambda path: append_file(
+                path,
+                f"INSTALLED_APPS += ['{self.name_slug}']",
+            ),
+            strict_deps=[],
+            weak_deps=[],
+        )
+
+        add_app_urls_to_project = PyCode(
+            ident=PyIdent(module=[project_name, "urls"], qual_name=[]),
+            # code=[f"path('{self.name_slug}/', include('{self.name_slug}.urls'))"],
+            code=lambda path: append_file(
+                path,
+                f"urlpatterns += [path('{self.name_slug}/', include('{self.name_slug}.urls'))]",
+            ),
+            strict_deps=[
+                PyIdent(module=["django", "urls", "conf"], qual_name=["include"]),
+            ],
+            weak_deps=[],
+        )
+
+        return [add_apps_to_settings, add_app_urls_to_project, *model_codes]
 
 
 @dataclass
 class DjangoProject:
     name_slug: str
-    apps = Iterable[DjangoApp]
+    apps: Iterable[DjangoApp]
+
+    def to_py_codes(self) -> Iterable[PyCode]:
+        app_codes = concat(map(lambda a: a.to_py_codes(self.name_slug), self.apps))
+
+        return app_codes
+
+    def write(self) -> Io[None]:
+        return foldl(
+            lambda acc, code: acc.then(write_py_code(code)),
+            Io.pure(None),
+            self.to_py_codes(),
+        )
