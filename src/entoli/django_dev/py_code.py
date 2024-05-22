@@ -264,7 +264,7 @@ def parse_idents(content: str) -> Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]:
     return imported_idents, module_items
 
 
-def import_and_use_as(
+def importing_and_use_as(
     current_module: PyIdent,
     imported_idents: Dict[str, PyIdent],
     defined_idents: Dict[str, PyIdent],
@@ -329,24 +329,32 @@ def import_and_use_as(
             return Just(import_as), name_to_use
 
 
-def import_line(ident: PyIdent, import_as: str) -> str:
+def import_line(ident: PyIdent, importing: str) -> str:
     # is_module = len(ident.qual_name) == 0
-    is_module = length(ident.qual_name) == 0
+    # is_module = length(ident.qual_name) == 0
 
-    if is_module:
-        need_as = ".".join(ident.module) != import_as
-        if need_as:
-            # return f"import {ident.module[-1]} as {import_as}"
-            return f"import {last(ident.module)} as {import_as}"
-        else:
-            # return f"import {ident.module[-1]}"
-            return f"import {last(ident.module)}"
-    else:  # item in module
-        need_as = ".".join(ident.qual_name) != import_as
-        if need_as:
-            return f"from {".".join(ident.module)} import {".".join(ident.qual_name)} as {import_as}"
-        else:
-            return f"from {".".join(ident.module)} import {".".join(ident.qual_name)}"
+    # if is_module:
+    #     need_as = ".".join(ident.module) != importing
+    #     if need_as:
+    #         # return f"import {ident.module[-1]} as {import_as}"
+    #         return f"import {last(ident.module)} as {importing}"
+    #     else:
+    #         # return f"import {ident.module[-1]}"
+    #         return f"import {last(ident.module)}"
+    # else:  # item in module
+    #     need_as = ".".join(ident.qual_name) != importing
+    #     if need_as:
+    #         return f"from {".".join(ident.module)} import {".".join(ident.qual_name)} as {importing}"
+    #     else:
+    #         return f"from {".".join(ident.module)} import {".".join(ident.qual_name)}"
+
+    importing_parts = importing.split(".")
+    importing_symbol = last(importing_parts)
+
+    if length(importing_parts) == 1:
+        return f"import {importing_symbol}"
+    else:
+        return f"from {'.'.join(importing_parts[:-1])} import {importing_symbol}"
 
 
 def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
@@ -376,7 +384,9 @@ def write_py_code(dir_path: Path, py_code: PyCode) -> Io[None]:
         key_dep_mb_i_us = {
             k: (
                 v,
-                *import_and_use_as(py_code.ident, imported_idents, defined_idents, v),
+                *importing_and_use_as(
+                    py_code.ident, imported_idents, defined_idents, v
+                ),
             )
             for k, v in py_code.deps.items()
         }

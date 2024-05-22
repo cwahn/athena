@@ -38,7 +38,7 @@ class BooleanField(DjangoField):
     mb_help_text: Maybe[str] = Nothing()
 
     def to_py_snippet(self, dep_env: Callable[[str], str], field_name: str) -> str:
-        return f"{dep_env(f"{field_name}::BooleanField")}(null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else ''})"
+        return f"{dep_env(f"{field_name}::BooleanField")}(null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
 
     # def strict_deps(self) -> Iterable[PyIdent]:
     #     return [PyIdent(module=["django", "db", "models"], qual_name=[])]
@@ -76,7 +76,7 @@ class CharField(DjangoField):
     #     return []
 
     def to_py_snippet(self, dep_env: Callable[[str], str], field_name: str) -> str:
-        return f"{dep_env(f'{field_name}::CharField')}(max_length={self.max_length}, null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else ''})"
+        return f"{dep_env(f'{field_name}::CharField')}(max_length={self.max_length}, null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
 
     def deps(self) -> Dict[str, PyDependecy]:
         return {
