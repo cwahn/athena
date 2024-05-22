@@ -331,7 +331,7 @@ def append_import_lines(path: Path, import_lines: List[str]) -> Io[None]:
         new_content = "\n".join(lines)
         return write_file(path, new_content)
 
-    return read_file(path).and_then(_inner)
+    return read_file(path).__(_inner)
 
 
 def append_definition_lines(path: Path, def_lines: List[str]) -> Io[None]:
@@ -343,7 +343,7 @@ def append_definition_lines(path: Path, def_lines: List[str]) -> Io[None]:
         new_content = "\n".join(new_lines)
         return write_file(path, new_content)
 
-    return read_file(path).and_then(_inner)
+    return read_file(path).__(_inner)
 
 
 def write_py_code(py_code: PyCode) -> Io[None]:
@@ -351,23 +351,23 @@ def write_py_code(py_code: PyCode) -> Io[None]:
 
     return (
         put_strln(f"\nWriting {py_code.ident.qual_name } to {file_path}\n")
-        .then(file_exists(file_path))
-        .and_then(
+        ._(file_exists(file_path))
+        .__(
             lambda exists: Io.pure(None)
             if exists
-            else create_dir_if_missing(True, file_path.parent).then(
+            else create_dir_if_missing(True, file_path.parent)._(
                 write_file(file_path, "")
             )
         )
-        .and_then(
-            lambda _: existing_idents(file_path).and_then(
+        .__(
+            lambda _: existing_idents(file_path).__(
                 lambda idents: (
                     imported_idents := idents[0],
                     defined_idents := idents[1],
                     deps_import_lines_ := deps_import_lines(
                         imported_idents, defined_idents, py_code
                     ),
-                    append_import_lines(file_path, deps_import_lines_).then(
+                    append_import_lines(file_path, deps_import_lines_)._(
                         append_definition_lines(file_path, py_code.code)
                     ),
                 )[-1]

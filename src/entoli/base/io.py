@@ -13,6 +13,11 @@ _B = TypeVar("_B")
 class Io(Generic[_A]):
     action: Callable[[], _A]
 
+    # def __call__(self) -> Callable[[], _A]:
+    #     # Return future-like for self
+    #     # The returned object if for lazy evaluation
+    #     # But also has to be able to used whenever _A is needed
+
     @staticmethod
     def fmap(f: Callable[[_A], _B], x: Io[_A]) -> Io[_B]:
         return Io(lambda: f(x.action()))

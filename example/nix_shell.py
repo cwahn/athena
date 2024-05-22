@@ -17,11 +17,6 @@ from entoli.process import (
     CreateProcess,
     create_process,
     h_get_contents,
-    h_get_line,
-    h_put_str_ln,
-    read_process_with_exit_code,
-    shell,
-    terminate_process,
     wait_for_process,
 )
 from entoli.base.io import Io, put_strln
@@ -114,40 +109,6 @@ main = (
         .then(put_strln(f"stderr: {res[2]}"))
     )
 )
-
-
-# def is_walrus_expression(op: Any) -> bool:
-#     return isinstance(op, tuple) and len(op) == 2 and isinstance(op[1], Io)
-
-
-# def do(*ios: Io) -> Io[Any]:
-#     def step(acc: Io[Any], op: Any) -> Io[Any]:
-#         if isinstance(op, Io):
-#             return acc.then(op)
-#         elif is_walrus_expression(op):
-#             io_action, walrus_op = op
-#             return acc.and_then(lambda _: walrus_op).then(io_action)
-#         else:
-#             return acc.and_then(lambda _: op)
-
-#     return foldl(step, Io.pure(None), ios)
-
-
-# main = do(
-#     create_dir_if_missing(True, flake_path),
-#     write_file(flake_path / "flake.nix", flake_content),
-#     put_strln("Flake file created"),
-#     do(
-#         # exists := file_exists(flake_path / "flake.nix"),
-#         # put_strln(f"Flake file exists: {exists}"),
-#         put_strln(f"Flake file exists: {exists}")
-#         for exists in [file_exists(flake_path / "flake.nix")]
-#     ),
-#     res := flake_call(flake_path, "pwd && which python"),
-#     put_strln(f"exit code: {res[0]}"),
-#     put_strln(f"stdout: {res[1]}"),
-#     put_strln(f"stderr: {res[2]}"),
-# )
 
 if __name__ == "__main__":
     main.action()

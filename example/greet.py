@@ -11,8 +11,8 @@ from entoli.base.io import put_strln, get_str
 
 greet = (
     put_strln("What is your name?")
-    .then(get_str)
-    .and_then(lambda name: put_strln(f"Hello, {name}!"))
+    ._(get_str)
+    .__(lambda name: put_strln(f"Hello, {name}!"))
 )
 
 

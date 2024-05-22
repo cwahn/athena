@@ -13,11 +13,11 @@ from entoli.base.control import delay_for, loop
 
 ask_and_sleep = (
     put_strln("How long should I sleep for? (in seconds)")
-    .then(get_str)
-    .and_then(
+    ._(get_str)
+    .__(
         lambda s: put_strln("Sleeping...")
-        .then(delay_for(timedelta(seconds=int(s))))
-        .and_then(lambda _: put_strln("Done!"))
+        ._(delay_for(timedelta(seconds=int(s))))
+        .__(lambda _: put_strln("Done!"))
     )
 )
 
