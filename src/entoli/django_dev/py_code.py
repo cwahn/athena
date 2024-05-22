@@ -290,6 +290,20 @@ def import_as(
     return Just(ident.fully_qualified_name())
 
 
+def use_and_import_as(
+    imported_idents: Dict[str, PyIdent],
+    defined_idents: Dict[str, PyIdent],
+    ident: PyIdent,
+) -> Tuple[str, Maybe[str]]:
+    
+
+    
+    filtered_imported = filter(lambda i: i[1] == ident, imported_idents.items())
+    if length(filtered_imported) != 0:
+        return (head(filtered_imported)[0], Nothing()) # altready imported, use as imported name
+    else: # Not imported
+
+
 def import_line(ident: PyIdent, import_as: str) -> str:
     # is_module = len(ident.qual_name) == 0
     is_module = length(ident.qual_name) == 0
