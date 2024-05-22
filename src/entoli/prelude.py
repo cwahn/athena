@@ -1,17 +1,13 @@
 from typing import Tuple, TypeVar, Iterable, Callable, Optional, Iterator
 import functools
 
+from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")
 
 # map and filter are already built-in functions in Python
-
-
-def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
-    for x in xs:
-        f(x)
 
 
 def map(f: Callable[[_A], _B], xs: Iterable[_A]) -> Iterable[_B]:
@@ -28,8 +24,8 @@ def filter(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
 #             yield y
 
 
-def filter_map(f: Callable[[_A], Optional[_B]], xs: Iterable[_A]) -> Iterable[_B]:
-    return Seq(lambda: (y for x in xs if (y := f(x)) is not None))
+def filter_map(f: Callable[[_A], Maybe[_B]], xs: Iterable[_A]) -> Iterable[_B]:
+    return Seq(lambda: (y.unwrap() for x in xs if (y := f(x))))
 
 
 def foldl(f: Callable[[_A, _B], _A], acc: _A, xs: Iterable[_B]) -> _A:
@@ -132,6 +128,20 @@ def elem(x: _A, xs: Iterable[_A]) -> bool:
 
 def not_elem(x: _A, xs: Iterable[_A]) -> bool:
     return x not in xs
+
+
+def find(f: Callable[[_A], bool], xs: Iterable[_A]) -> Maybe[_A]:
+    for x in xs:
+        if f(x):
+            return Just(x)
+    return Nothing()
+
+
+def find_index(f: Callable[[_A], bool], xs: Iterable[_A]) -> Maybe[int]:
+    for i, x in enumerate(xs):
+        if f(x):
+            return Just(i)
+    return Nothing()
 
 
 # def unzip(pairs: Iterable[Tuple[_A, _B]]) -> Tuple[Iterator[_A], Iterator[_B]]:
@@ -245,3 +255,15 @@ def sort(seq: Iterable[_A]) -> Iterable[_A]:
 
 def sort_on(f: Callable[[_A], _B], seq: Iterable[_A]) -> Iterable[_A]:
     return Seq(lambda: sorted(seq, key=f))  # type: ignore
+
+
+# Others
+
+
+def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
+    for x in xs:
+        f(x)
+
+
+def if_else(cond: bool, t: _A, f: _A) -> _A:
+    return t if cond else f
