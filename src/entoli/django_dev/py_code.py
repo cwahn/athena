@@ -1,7 +1,7 @@
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, Iterable, List, Tuple
 
 from entoli.base.io import Io, put_strln
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -9,6 +9,9 @@ from entoli.prelude import (
     concat,
     foldl,
     for_each,
+    init,
+    last,
+    length,
     sort_on,
     map,
     filter,
@@ -19,19 +22,18 @@ from entoli.system import create_dir_if_missing, file_exists, read_file, write_f
 
 @dataclass
 class PyIdent:
-    module: List[str]
-    qual_name: List[str]
+    module: Iterable[str]
+    qual_name: Iterable[str]
 
     def file_path(self) -> Path:
-        # Add .py
-        path_parts = self.module[:-1] + [self.module[-1] + ".py"]
+        path_parts = concat([init(self.module), last(self.module) + ".py"])
         return Path(*path_parts)
 
     def fully_qualified_name(self) -> str:
-        return ".".join(self.module + self.qual_name)
+        return ".".join(concat([self.module, self.qual_name]))
 
     def import_statement(self) -> str:
-        return f"from {self.fully_qualified_name()} import {self.qual_name[-1]}"
+        return f"from {self.fully_qualified_name()} import {last(self.qual_name)}"
 
 
 # Compilation takes dependency graph and generates a Io
@@ -40,14 +42,14 @@ class PyIdent:
 # @dataclass
 # class PyCode:
 #     ident: PyIdent
-#     code: List[str]
+#     code: Iterable[str]
 
 
 # # SomeParams ... -> PyCode
 
 
 # # This could be seen as a edge of graphs
-# def derive_some_codes(dep_ident0: PyIdent, dep_ident1: PyIdent) -> List[PyCode]: ...
+# def derive_some_codes(dep_ident0: PyIdent, dep_ident1: PyIdent) -> Iterable[PyCode]: ...
 
 
 # Need to generate graph from abstract data.
@@ -56,15 +58,16 @@ class PyIdent:
 # One unit of should have some amout of information how will it get compiled in to the code.
 # This is essential for reusable code generation.
 
-# Dict[PyCode, List[Ident], List[Ident]]
+# Dict[PyCode, Iterable[Ident], Iterable[Ident]]
 
 
 @dataclass
 class PyCode:
     ident: PyIdent
-    code: List[str]
-    strict_deps: List[PyIdent]
-    weak_deps: List[PyIdent]
+    # code: Iterable[str]
+    code: Callable[[Path], Io[None]] # Assume that the file is already created
+    strict_deps: Iterable[PyIdent]
+    weak_deps: Iterable[PyIdent]
 
 
 # Validation
@@ -81,8 +84,8 @@ class PyCode:
 # After adding code only with weak deps re do the process.
 
 
-def validate(codes: List[PyCode]) -> bool:
-    def all_idents_unique(codes: List[PyCode]) -> bool:
+def validate(codes: Iterable[PyCode]) -> bool:
+    def all_idents_unique(codes: Iterable[PyCode]) -> bool:
         idents = map(lambda c: c.ident, codes)
 
         def is_unique(acc: bool, id: PyIdent) -> bool:
@@ -90,20 +93,21 @@ def validate(codes: List[PyCode]) -> bool:
 
         return foldl(is_unique, True, idents)
 
-    def all_deps_present(codes: List[PyCode]) -> bool:
+    def all_deps_present(codes: Iterable[PyCode]) -> bool:
         for code in codes:
-            for dep in code.strict_deps + code.weak_deps:
+            # for dep in code.strict_deps + code.weak_deps:
+            for dep in concat([code.strict_deps, code.weak_deps]):
                 if dep not in [c.ident for c in codes]:
                     return False
         return True
 
-    def no_strict_circular_deps(codes: List[PyCode]) -> bool:
-        def not_in_circle(visited: List[PyIdent], code: PyCode) -> bool:
+    def no_strict_circular_deps(codes: Iterable[PyCode]) -> bool:
+        def not_in_circle(visited: Iterable[PyIdent], code: PyCode) -> bool:
             if code.ident in visited:
                 return False
             else:
                 return all(
-                    not_in_circle(visited + [code.ident], c)
+                    not_in_circle(concat([visited, [code.ident]]), c)
                     for c in codes
                     if c.ident in code.strict_deps
                 )
@@ -117,8 +121,8 @@ def validate(codes: List[PyCode]) -> bool:
     )
 
 
-def raw_ordered_codes(codes: List[PyCode]) -> List[PyCode]:
-    def maybe_free_code(sorted_codes: List[PyCode]) -> Maybe[PyCode]:
+def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
+    def maybe_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
         unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
 
         def is_free(code: PyCode) -> bool:
@@ -134,7 +138,7 @@ def raw_ordered_codes(codes: List[PyCode]) -> List[PyCode]:
         except StopIteration:
             return Nothing()
 
-    def maybe_loosely_free_code(sorted_codes: List[PyCode]) -> Maybe[PyCode]:
+    def maybe_loosely_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
         unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
 
         def is_loosely_free(code: PyCode) -> bool:
@@ -144,7 +148,7 @@ def raw_ordered_codes(codes: List[PyCode]) -> List[PyCode]:
             return all(map(lambda i: i in sorted_ids, code.strict_deps))
 
         free_codes = filter(is_loosely_free, unsorted_codes)
-        less_deps_first = sort_on(lambda c: len(c.weak_deps), free_codes)
+        less_deps_first = sort_on(lambda c: length(c.weak_deps), free_codes)
 
         try:
             # return Just(next(less_deps_first))
@@ -152,21 +156,23 @@ def raw_ordered_codes(codes: List[PyCode]) -> List[PyCode]:
         except StopIteration:
             return Nothing()
 
-    def _order(acc: List[PyCode], un_ordered: List[PyCode]) -> List[PyCode]:
+    def _order(acc: Iterable[PyCode], un_ordered: Iterable[PyCode]) -> Iterable[PyCode]:
         if un_ordered == []:
             return acc
         else:
             if m_code := maybe_free_code(acc):
-                return _order(acc + [m_code.unwrap()], un_ordered)
+                # return _order(acc + [m_code.unwrap()], un_ordered)
+                return _order(concat([acc, [m_code.unwrap()]]), un_ordered)
             elif m_code := maybe_loosely_free_code(acc):
-                return _order(acc + [m_code.unwrap()], un_ordered)
+                # return _order(acc + [m_code.unwrap()], un_ordered)
+                return _order(concat([acc, [m_code.unwrap()]]), un_ordered)
             else:
                 raise RuntimeError("Should be unreachable")
 
     return _order([], codes)
 
 
-def ordered_codes(codes: List[PyCode]) -> Maybe[List[PyCode]]:
+def ordered_codes(codes: Iterable[PyCode]) -> Maybe[Iterable[PyCode]]:
     if validate(codes):
         return Just(raw_ordered_codes(codes))
     else:
@@ -184,8 +190,8 @@ def ordered_codes(codes: List[PyCode]) -> Maybe[List[PyCode]]:
 
 # @dataclass
 # class PyIdent:
-#     module: List[str]
-#     qual_name: List[str]
+#     module: Iterable[str]
+#     qual_name: Iterable[str]
 
 #     def re_file_path(self) -> Path:
 #         return Path(*self.module) / Path(*self.qual_name) / Path("__init__.py")
@@ -197,7 +203,7 @@ def ordered_codes(codes: List[PyCode]) -> Maybe[List[PyCode]]:
 #         return f"from {self.fulley_qualified_name()} import {self.qual_name[-1]}"
 
 
-def parse_imported_idents(lines: List[str]) -> Dict[str, PyIdent]:
+def parse_imported_idents(lines: Iterable[str]) -> Dict[str, PyIdent]:
     tree = ast.parse("\n".join(lines))
     imports = {}
 
@@ -219,7 +225,7 @@ def parse_imported_idents(lines: List[str]) -> Dict[str, PyIdent]:
     return imports
 
 
-def parse_defined_idents(lines: List[str]) -> Dict[str, PyIdent]:
+def parse_defined_idents(lines: Iterable[str]) -> Dict[str, PyIdent]:
     tree = ast.parse("\n".join(lines))
     module_items = {}
 
@@ -243,7 +249,7 @@ def parse_defined_idents(lines: List[str]) -> Dict[str, PyIdent]:
     return module_items
 
 
-def parse_idents(lines: List[str]) -> Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]:
+def parse_idents(lines: Iterable[str]) -> Tuple[Dict[str, PyIdent], Dict[str, PyIdent]]:
     imported_idents = parse_imported_idents(lines)
     module_items = parse_defined_idents(lines)
     return imported_idents, module_items
@@ -264,13 +270,16 @@ def import_as(
     if ident in imported_idents.values():
         return Nothing()
 
-    base_name = ident.qual_name[-1]
+    # base_name = ident.qual_name[-1]
+    base_name = last(ident.qual_name)
     if base_name not in defined_idents and base_name not in imported_idents:
         return Just(base_name)
 
     # Add module parts to the base name to avoid collision
-    for i in range(1, len(ident.module) + 1):
-        qualified_name = "_".join(ident.module[-i:] + ident.qual_name)
+    # for i in range(1, len(ident.module) + 1):
+    for i in range(1, length(ident.module) + 1):
+        # qualified_name = "_".join(ident.module[-i:] + ident.qual_name)
+        qualified_name = "_".join(concat([ident.module[-i:], ident.qual_name]))
         if (
             qualified_name not in defined_idents
             and qualified_name not in imported_idents
@@ -282,13 +291,16 @@ def import_as(
 
 
 def import_line(ident: PyIdent, import_as: str) -> str:
-    is_module = len(ident.qual_name) == 0
+    # is_module = len(ident.qual_name) == 0
+    is_module = length(ident.qual_name) == 0
     if is_module:
         need_as = ".".join(ident.module) != import_as
         if need_as:
-            return f"import {ident.module[-1]} as {import_as}"
+            # return f"import {ident.module[-1]} as {import_as}"
+            return f"import {last(ident.module)} as {import_as}"
         else:
-            return f"import {ident.module[-1]}"
+            # return f"import {ident.module[-1]}"
+            return f"import {last(ident.module)}"
     else:  # item in module
         need_as = ".".join(ident.qual_name) != import_as
         if need_as:
@@ -301,19 +313,20 @@ def deps_import_lines(
     existing_idents: Dict[str, PyIdent],
     defined_idents: Dict[str, PyIdent],
     py_code: PyCode,
-) -> List[str]:
+) -> Iterable[str]:
     return list(
         map(
             lambda dep: (
                 import_as_ := import_as(existing_idents, defined_idents, dep),
                 import_line(dep, import_as_.unwrap()) if import_as_ else "",
             )[-1],
-            py_code.strict_deps + py_code.weak_deps,
+            # py_code.strict_deps + py_code.weak_deps,
+            concat([py_code.strict_deps, py_code.weak_deps]),
         )
     )
 
 
-def append_import_lines(path: Path, import_lines: List[str]) -> Io[None]:
+def append_import_lines(path: Path, import_lines: Iterable[str]) -> Io[None]:
     def _inner(content: str) -> Io[None]:
         lines = content.split("\n")
         # Find the end of the import statements
@@ -331,10 +344,10 @@ def append_import_lines(path: Path, import_lines: List[str]) -> Io[None]:
         new_content = "\n".join(lines)
         return write_file(path, new_content)
 
-    return read_file(path).__(_inner)
+    return read_file(path).and_then(_inner)
 
 
-def append_definition_lines(path: Path, def_lines: List[str]) -> Io[None]:
+def append_definition_lines(path: Path, def_lines: Iterable[str]) -> Io[None]:
     def _inner(content: str) -> Io[None]:
         lines = content.split("\n")
 
@@ -343,7 +356,7 @@ def append_definition_lines(path: Path, def_lines: List[str]) -> Io[None]:
         new_content = "\n".join(new_lines)
         return write_file(path, new_content)
 
-    return read_file(path).__(_inner)
+    return read_file(path).and_then(_inner)
 
 
 def write_py_code(py_code: PyCode) -> Io[None]:
@@ -351,24 +364,25 @@ def write_py_code(py_code: PyCode) -> Io[None]:
 
     return (
         put_strln(f"\nWriting {py_code.ident.qual_name } to {file_path}\n")
-        ._(file_exists(file_path))
-        .__(
+        .then(file_exists(file_path))
+        .and_then(
             lambda exists: Io.pure(None)
             if exists
-            else create_dir_if_missing(True, file_path.parent)._(
+            else create_dir_if_missing(True, file_path.parent).then(
                 write_file(file_path, "")
             )
         )
-        .__(
-            lambda _: existing_idents(file_path).__(
+        .and_then(
+            lambda _: existing_idents(file_path).and_then(
                 lambda idents: (
                     imported_idents := idents[0],
                     defined_idents := idents[1],
                     deps_import_lines_ := deps_import_lines(
                         imported_idents, defined_idents, py_code
                     ),
-                    append_import_lines(file_path, deps_import_lines_)._(
-                        append_definition_lines(file_path, py_code.code)
+                    append_import_lines(file_path, deps_import_lines_).then(
+                        # append_definition_lines(file_path, py_code.code)
+                        py_code.code(file_path)
                     ),
                 )[-1]
             )
