@@ -99,10 +99,28 @@ def flake_call(flake_path: Path, cmd: str) -> Io[Tuple[int, str, str]]:
 main = (
     create_dir_if_missing(True, flake_path)
     .then(write_file(flake_path / "flake.nix", flake_content))
-    .then(put_strln("Flake file created"))
     .then(file_exists(flake_path / "flake.nix"))
     .and_then(lambda res: put_strln(f"Flake file exists: {res}"))
+    .then(write_file(flake_path / ".envrc", "use flake"))
+    .then(file_exists(flake_path / ".envrc"))
+    .and_then(lambda res: put_strln(f"Envrc file exists: {res}"))
     .then(flake_call(flake_path, "pwd && which python"))
+    .then(
+        flake_call(
+            flake_path,
+            """
+pip install django
+django-admin --version
+django-admin startproject auto_project
+cd auto_project
+python manage.py startapp auto_app_0
+python manage.py startapp auto_app_1
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser --username admin --email a@a.com --noinput
+""",
+        )
+    )
     .and_then(
         lambda res: put_strln(f"exit code: {res[0]}")
         .then(put_strln(f"stdout: {res[1]}"))
