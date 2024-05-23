@@ -14,7 +14,7 @@ from entoli.prelude import (
     find,
     foldl,
     for_each,
-    conditioanl,
+    if_else,
     init,
     last,
     length,
@@ -44,7 +44,7 @@ class PyIdent:
 
     def includes(self, other: "PyIdent") -> bool:
         self_fq_name = self.fully_qualified_name()
-        stripted_self = conditioanl(
+        stripted_self = if_else(
             self_fq_name.endswith(".*"),
             self_fq_name[:-2],
             self_fq_name,
@@ -115,12 +115,12 @@ class PyCode:
 
     def strict_deps(self) -> Iterable[PyIdent]:
         return filter_map(
-            lambda d: conditioanl(d.is_strict, Just(d.ident), Nothing()), self.deps.values()
+            lambda d: if_else(d.is_strict, Just(d.ident), Nothing()), self.deps.values()
         )
 
     def weak_deps(self) -> Iterable[PyIdent]:
         return filter_map(
-            lambda d: conditioanl(not d.is_strict, Just(d.ident), Nothing()),
+            lambda d: if_else(not d.is_strict, Just(d.ident), Nothing()),
             self.deps.values(),
         )
 
@@ -182,8 +182,6 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
         unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
 
         def is_free(code: PyCode) -> bool:
-            # deps = concat([code.strict_deps, code.weak_deps])
-            # deps = code.deps.values()
             sorted_ids = map(lambda c: c.ident, sorted_codes)
             # return all(map(lambda i: i in sorted_ids, deps))
             return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
@@ -200,17 +198,13 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
         unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
 
         def is_loosely_free(code: PyCode) -> bool:
-            # sorted_ids = [c.ident for c in sorted_codes]
             sorted_ids = map(lambda c: c.ident, sorted_codes)
-            # return all((i in sorted_ids) for i in code.strict_deps)
             return all(map(lambda i: i in sorted_ids, code.strict_deps()))
 
         free_codes = filter(is_loosely_free, unsorted_codes)
         less_deps_first = sort_on(lambda c: length(c.weak_deps()), free_codes)
 
         try:
-            # return Just(next(less_deps_first))
-            return Just(head(less_deps_first))
         except StopIteration:
             return Nothing()
 
@@ -219,10 +213,8 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
             return acc
         else:
             if m_code := maybe_free_code(acc):
-                # return _order(acc + [m_code.unwrap()], un_ordered)
                 return _order(concat([acc, [m_code.unwrap()]]), un_ordered)
             elif m_code := maybe_loosely_free_code(acc):
-                # return _order(acc + [m_code.unwrap()], un_ordered)
                 return _order(concat([acc, [m_code.unwrap()]]), un_ordered)
             else:
                 raise RuntimeError("Should be unreachable")
@@ -451,7 +443,7 @@ def write_py_code(dir_path: Path, py_code: PyCode) -> Io[None]:
         put_strln(f"\nWriting {py_code.ident.qual_name } to {file_path}\n")
         .then(file_exists(file_path))
         .and_then(
-            lambda exists: conditioanl(
+            lambda exists: if_else(
                 exists,
                 Io.pure(None),
                 create_dir_if_missing(True, file_path.parent).then(

@@ -1,18 +1,19 @@
 import ast
 from dataclasses import dataclass
 import importlib
-from operator import concat
 from typing import Callable, Iterable, Dict
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
 from entoli.prelude import (
     concat,
     filter_map,
-    conditioanl,
+    find,
+    if_else,
     fst,
     head,
     is_prefix_of,
     is_suffix_of,
+    last,
     length,
     snd,
     init,
@@ -54,7 +55,7 @@ class PyIdent:
         return is_suffix_of(["*"], self.full_qual_name_parts())
 
     def includes(self, other: "PyIdent") -> bool:
-        wc_striped = conditioanl(
+        wc_striped = if_else(
             tail(self.full_qual_name_parts()) == ["*"],
             init(self.full_qual_name_parts()),
             self.full_qual_name_parts(),
@@ -97,9 +98,7 @@ class PyIdent:
 
     def inverse_name_env(self, name_env: "IdEnv") -> str:
         relevant_env = filter_map(
-            lambda key_id: conditioanl(
-                snd(key_id).includes(self), Just(key_id), Nothing()
-            ),
+            lambda key_id: if_else(snd(key_id).includes(self), Just(key_id), Nothing()),
             name_env.inner.items(),
         )
 
@@ -118,6 +117,44 @@ class PyIdent:
                 return (
                     relevent_key + "." + self.relative_name_to(relevant_ident).unwrap()
                 )
+
+    def mb_import_line(self, name_env: "IdEnv") -> Maybe[str]:
+        if self.module == []:  # In-file definition, no need to import
+            return Nothing()
+        else:
+            mb_relevent = find(
+                lambda key_id: snd(key_id).includes(self), name_env.inner.items()
+            )
+            if mb_relevent:  # Maybe already imported
+                return Nothing()
+            else:  # Need to get imported
+                if not self.mb_name:  # Self is a module
+                    if length(self.module) == 1:
+                        modeule_name = head(self.module)
+                        if modeule_name in name_env.inner:
+                            return Just(f"import {modeule_name} as {modeule_name}_")
+                        else:
+                            return Just(f"import {modeule_name}")
+                    else:  # try to use from import
+                        last_module_name = last(self.module)
+                        if last_module_name not in name_env.inner:  # No conflict
+                            # todo Actually in case of item with the same name with the module, it could be not a conflict.
+                            return Just(
+                                f"from {init(self.module)} import {last_module_name}"
+                            )
+                        else:  # Conflict
+                            return Just(
+                                f"from {init(self.module)} import {last_module_name} as {last_module_name}_"
+                            )
+                else:  # Self is a name in a module
+                    fully_qualified = self.full_qual_name_parts()
+                    last_name = last(fully_qualified)
+                    if last_name not in name_env.inner:
+                        return Just(f"from {init(fully_qualified)} import {last_name}")
+                    else:
+                        return Just(
+                            f"from {init(fully_qualified)} import {last_name} as {last_name}_"
+                        )
 
 
 # In-file pytest tests
@@ -248,6 +285,52 @@ class _TestPyIdent:
         ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
         assert ident.inverse_name_env(name_env) == "os.path.join"
 
+    def _test_PyIdent_mb_import_line(self):
+        name_env = IdEnv(
+            inner=Map(
+                [
+                    ("os", PyIdent(module=["os"], mb_name=Just("os"))),
+                    ("os.path", PyIdent(module=["os"], mb_name=Just("os.path"))),
+                    (
+                        "os.path.join",
+                        PyIdent(module=["os"], mb_name=Just("os.path.join")),
+                    ),
+                ]
+            )
+        )
+
+        ident = PyIdent(module=["os"], mb_name=Just("os"))
+        assert ident.mb_import_line(name_env) == Nothing()
+
+        # todo Name of item the same with the module name need to be handled.
+        # ident = PyIdent(module=["os"], mb_name=Nothing())
+        # assert ident.mb_import_line(name_env) == Just("import os")
+
+        # ! Qualified names are not considered. PyIdent is for module-level item of upper.
+        # ident = PyIdent(module=["os"], mb_name=Just("os.path"))
+        # assert ident.mb_import_line(name_env) == Just("from os import path")
+
+        # ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
+        # assert ident.mb_import_line(name_env) == Just("from os.path import join")
+
+        # ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
+        # name_env = IdEnv(
+        #     inner=Map(
+        #         [
+        #             ("os", PyIdent(module=["os"], mb_name=Just("os"))),
+        #             ("os.path", PyIdent(module=["os"], mb_name=Just("os.path"))),
+        #             (
+        #                 "os.path.join",
+        #                 PyIdent(module=["os"], mb_name=Just("os.path.join")),
+        #             ),
+        #             ("join", PyIdent(module=["os", "path"], mb_name=Just("join"))),
+        #         ]
+        #     )
+        # )
+        # assert ident.mb_import_line(name_env) == Just(
+        #     "from os.path import join as join_"
+        # )
+
 
 @dataclass
 class PyDependecy:
@@ -364,12 +447,12 @@ class PyCode:
 
     def strict_deps(self) -> Iterable[PyIdent]:
         return filter_map(
-            lambda d: conditioanl(d.is_strict, Just(d.ident), Nothing()),
+            lambda d: if_else(d.is_strict, Just(d.ident), Nothing()),
             self.deps.values(),
         )
 
     def weak_deps(self) -> Iterable[PyIdent]:
         return filter_map(
-            lambda d: conditioanl(not d.is_strict, Just(d.ident), Nothing()),
+            lambda d: if_else(not d.is_strict, Just(d.ident), Nothing()),
             self.deps.values(),
         )

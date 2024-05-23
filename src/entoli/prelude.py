@@ -230,28 +230,12 @@ def transpose(xss: Iterable[Iterable[_A]]) -> Iterable[Iterable[_A]]:
 # Additional functions
 
 
-# def unique(seq: Iterable[_A]) -> Iterator[_A]:
-#     seen = set()
-#     for x in seq:
-#         if x not in seen:
-#             seen.add(x)
-#             yield x
-
-
 def unique(seq: Iterable[_A]) -> Iterable[_A]:
     return Seq(lambda: (x for x in set(seq)))
 
 
-# def sort(seq: Iterable[_A]) -> Iterator[_A]:
-#     return iter(sorted(seq))  # type: ignore
-
-
 def sort(seq: Iterable[_A]) -> Iterable[_A]:
     return Seq(lambda: sorted(seq))  # type: ignore
-
-
-# def sort_on(f: Callable[[_A], _B], seq: Iterable[_A]) -> Iterator[_A]:
-#     return iter(sorted(seq, key=f))  # type: ignore
 
 
 def sort_on(f: Callable[[_A], _B], seq: Iterable[_A]) -> Iterable[_A]:
@@ -317,5 +301,9 @@ def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
         f(x)
 
 
-def conditioanl(cond: bool, t: _A, f: _A) -> _A:
+def if_else(cond: bool, t: _A, f: _A) -> _A:
     return t if cond else f
+
+
+def body(*exps):
+    return [exp for exp in exps][-1]
