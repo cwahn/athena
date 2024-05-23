@@ -8,6 +8,7 @@ _A = TypeVar("_A")
 _B = TypeVar("_B")
 
 
+# todo Need extra optimization
 @dataclass
 class Map(Generic[_A, _B]):
     inner: list[Tuple[_A, _B]]

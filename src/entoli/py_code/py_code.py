@@ -4,7 +4,7 @@ from typing import Callable, Iterable, Dict, Tuple
 from pytest import Item
 
 from entoli.base.maybe import Just, Nothing, Maybe
-from entoli.pycode.py_ident import PyIdent
+from entoli.py_code.py_ident import PyIdent
 from entoli.map import Map
 from entoli.prelude import (
     concat,
