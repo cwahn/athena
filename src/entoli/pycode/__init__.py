@@ -1,24 +1,28 @@
 from dataclasses import dataclass
-from typing import Callable, Iterable, Dict
+from typing import Callable, Iterable, Dict, Tuple
 
 from pytest import Item
 
 from entoli.base.maybe import Just, Nothing, Maybe
+from entoli.pycode.py_ident import PyIdent
 from entoli.map import Map
-from entoli.prelude import filter_map, if_else
-
-
-@dataclass
-class PyIdent:
-    module: Iterable[str]
-    qual_name: Iterable[str]
+from entoli.prelude import (
+    concat,
+    filter_map,
+    conditioanl,
+    fst,
+    head,
+    is_prefix_of,
+    is_suffix_of,
+    length,
+    snd,
+)
 
 
 @dataclass
 class PyDependecy:
     ident: PyIdent
     is_strict: bool = True
-    prefered_last_n: int = 1
 
 
 DepEnv = Callable[[str], str]
@@ -32,11 +36,12 @@ class PyCode:
 
     def strict_deps(self) -> Iterable[PyIdent]:
         return filter_map(
-            lambda d: if_else(d.is_strict, Just(d.ident), Nothing()), self.deps.values()
+            lambda d: conditioanl(d.is_strict, Just(d.ident), Nothing()),
+            self.deps.values(),
         )
 
     def weak_deps(self) -> Iterable[PyIdent]:
         return filter_map(
-            lambda d: if_else(not d.is_strict, Just(d.ident), Nothing()),
+            lambda d: conditioanl(not d.is_strict, Just(d.ident), Nothing()),
             self.deps.values(),
         )

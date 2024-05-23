@@ -10,7 +10,7 @@ _B = TypeVar("_B")
 
 @dataclass
 class Map(Generic[_A, _B]):
-    inner: Set[Tuple[_A, _B]]
+    inner: list[Tuple[_A, _B]]
 
     def __iter__(self) -> Iterator[Tuple[_A, _B]]:
         return self.inner.__iter__()
@@ -25,10 +25,11 @@ class Map(Generic[_A, _B]):
         raise KeyError(key)
 
     def __setitem__(self, key: _A, value: _B):
-        if key in self:
+        if key in self.keys():
             del self[key]
 
-        self.inner.add((key, value))
+        self.inner.append((key, value))
+        # self.inner.add((key, value))
 
     def __delitem__(self, key: _A):
         for k, _ in self.inner:
@@ -45,7 +46,7 @@ class Map(Generic[_A, _B]):
 
     @staticmethod
     def from_iter(items: Iterable[Tuple[_A, _B]]) -> "Map[_A, _B]":
-        return Map(set(items))
+        return Map(list(items))
 
     def items(self) -> Iterable[Tuple[_A, _B]]:
         return Seq(lambda: (item for item in self.inner))

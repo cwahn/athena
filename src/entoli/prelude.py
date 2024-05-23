@@ -86,8 +86,9 @@ def null(xs: Iterable[_A]) -> bool:
 #     return iter(reversed(list(xs)))
 
 
+# ! For some reason, reversed iterator is not working with pattern matching correctly
 def reverse(xs: Iterable[_A]) -> Iterable[_A]:
-    return Seq(lambda: reversed(list(xs)))
+    return list(reversed(list(xs)))
 
 
 # def take(n: int, xs: Iterable[_A]) -> Iterator[_A]:
@@ -257,6 +258,57 @@ def sort_on(f: Callable[[_A], _B], seq: Iterable[_A]) -> Iterable[_A]:
     return Seq(lambda: sorted(seq, key=f))  # type: ignore
 
 
+def is_prefix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
+    match xs:
+        case []:
+            return True
+        case [x, *xs_]:
+            match ys:
+                case []:
+                    return False
+                case [y, *ys_]:
+                    if x == y:
+                        return is_prefix_of(xs_, ys_)
+                    else:
+                        return False
+
+    raise RuntimeError(f"Unreachable code: {xs}{list(xs)}, {ys}{list(ys)} ")
+
+
+def _test_is_prefix_of():
+    assert is_prefix_of([], [])
+    assert is_prefix_of([], [1])
+    assert is_prefix_of([1], [1])
+    assert is_prefix_of([1, 2], [1, 2])
+    assert is_prefix_of([1, 2], [1, 2, 3])
+    assert not is_prefix_of([1, 2], [1])
+    assert not is_prefix_of([1, 2], [1, 3])
+    assert not is_prefix_of([1, 2], [1, 3, 4])
+
+
+def is_suffix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
+    return is_prefix_of(reverse(xs), reverse(ys))
+
+
+def _test_is_suffix_of():
+    assert is_suffix_of([], [])
+    assert is_suffix_of([], [1])
+    assert is_suffix_of([1], [1])
+    assert is_suffix_of([1, 2], [1, 2])
+    assert is_suffix_of([1, 2], [0, 1, 2])
+    assert not is_suffix_of([1, 2], [1])
+    assert not is_suffix_of([1, 2], [3, 1])
+    assert not is_suffix_of([1, 2], [4, 3, 1])
+
+
+def fst(pair: Tuple[_A, _B]) -> _A:
+    return pair[0]
+
+
+def snd(pair: Tuple[_A, _B]) -> _B:
+    return pair[1]
+
+
 # Others
 
 
@@ -265,5 +317,5 @@ def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
         f(x)
 
 
-def if_else(cond: bool, t: _A, f: _A) -> _A:
+def conditioanl(cond: bool, t: _A, f: _A) -> _A:
     return t if cond else f
