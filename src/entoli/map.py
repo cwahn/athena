@@ -25,6 +25,9 @@ class Map(Generic[_A, _B]):
         raise KeyError(key)
 
     def __setitem__(self, key: _A, value: _B):
+        if key in self:
+            del self[key]
+
         self.inner.add((key, value))
 
     def __delitem__(self, key: _A):
@@ -54,7 +57,7 @@ class Map(Generic[_A, _B]):
         return Seq(lambda: (v for _, v in self.inner))
 
 
-def test_map_construct():
+def test_Map_construct():
     m = Map.from_iter([(1, 2), (3, 4)])
     assert len(m) == 2
     assert 1 in m
@@ -64,3 +67,41 @@ def test_map_construct():
     assert list(m.items()) == [(1, 2), (3, 4)]
     assert list(m.keys()) == [1, 3]
     assert list(m.values()) == [2, 4]
+
+
+def test_Map_set():
+    m = Map.from_iter([(1, 2), (3, 4)])
+    m[1] = 3
+    assert len(m) == 2
+    assert m[1] == 3
+    m[5] = 6
+    assert len(m) == 3
+    assert m[5] == 6
+
+
+def test_Map_del():
+    m = Map.from_iter([(1, 2), (3, 4)])
+    del m[1]
+    assert len(m) == 1
+    assert 1 not in m
+    assert 3 in m
+    del m[3]
+    assert len(m) == 0
+    assert 3 not in m
+    assert 1 not in m
+
+
+def test_Map_iter():
+    m = Map.from_iter([(1, 2), (3, 4)])
+    assert list(m) == [(1, 2), (3, 4)]
+
+
+def test_Map_bool():
+    m = Map.from_iter([(1, 2), (3, 4)])
+    assert m
+    m = Map.from_iter([])
+    assert not m
+    m = Map.from_iter([(1, 2)])
+    assert m
+    del m[1]
+    assert not m
