@@ -1,14 +1,10 @@
-# my_package/module1.py
-
 import pytest
 from dataclasses import dataclass
 from typing import Iterable, Dict, List, Optional
 import ast
 
-@dataclass
-class PyIdent:
-    module: List[str]
-    qual_name: List[str]
+from entoli.django_dev.py_code import PyIdent
+
 
 class NameEnv:
     def __init__(self, source: str):
@@ -47,7 +43,9 @@ class NameEnv:
             def visit_Assign(self, node):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        ident_dict[target.id] = PyIdent(module=[], qual_name=[target.id])
+                        ident_dict[target.id] = PyIdent(
+                            module=[], qual_name=[target.id]
+                        )
                 self.generic_visit(node)
 
             def visit_AnnAssign(self, node):
@@ -75,6 +73,7 @@ class NameEnv:
                 return f"{ident.module[0]}.{'.'.join(pyident.qual_name)}"
         return None
 
+
 # In-file pytest tests
 def test_get_import_line():
     source_code = """
@@ -93,19 +92,23 @@ other_var: int = 20
 import models
 """
     name_env = NameEnv(source_code)
-    
+
     os_ident = PyIdent(module=["os"], qual_name=["os"])
     namedtuple_ident = PyIdent(module=["collections"], qual_name=["namedtuple"])
     my_function_ident = PyIdent(module=[], qual_name=["my_function"])
     my_class_ident = PyIdent(module=[], qual_name=["MyClass"])
     my_var_ident = PyIdent(module=[], qual_name=["my_var"])
     char_field_ident = PyIdent(module=["models"], qual_name=["CharField"])
-    
+
     assert name_env.get_import_line(os_ident) == "from os import os"
-    assert name_env.get_import_line(namedtuple_ident) == "from collections import namedtuple"
+    assert (
+        name_env.get_import_line(namedtuple_ident)
+        == "from collections import namedtuple"
+    )
     assert name_env.get_import_line(my_function_ident) is None
     assert name_env.get_import_line(my_class_ident) is None
     assert name_env.get_import_line(my_var_ident) is None
+
 
 def test_get_usage():
     source_code = """
@@ -124,14 +127,14 @@ other_var: int = 20
 import models
 """
     name_env = NameEnv(source_code)
-    
+
     os_ident = PyIdent(module=["os"], qual_name=["os"])
     namedtuple_ident = PyIdent(module=["collections"], qual_name=["namedtuple"])
     my_function_ident = PyIdent(module=[], qual_name=["my_function"])
     my_class_ident = PyIdent(module=[], qual_name=["MyClass"])
     my_var_ident = PyIdent(module=[], qual_name=["my_var"])
     char_field_ident = PyIdent(module=["models"], qual_name=["CharField"])
-    
+
     assert name_env.get_usage(os_ident) == "os"
     assert name_env.get_usage(namedtuple_ident) == "namedtuple"
     assert name_env.get_usage(my_function_ident) == "my_function"
@@ -140,7 +143,9 @@ import models
     assert name_env.get_usage(PyIdent(module=[], qual_name=["non_existent"])) is None
     assert name_env.get_usage(char_field_ident) == "models.CharField"
 
+
 # Run the tests if the script is executed directly
 if __name__ == "__main__":
     import pytest
+
     pytest.main([__file__])
