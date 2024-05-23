@@ -1,18 +1,19 @@
 import pytest
 from dataclasses import dataclass
-from typing import Iterable, Dict, List, Optional
+from typing import Iterable, Dict, List, Optional, Self
 import ast
 
 from entoli.django_dev.py_code import PyIdent
 
 
+@dataclass
 class NameEnv:
-    def __init__(self, source: str):
-        self.env: Dict[str, PyIdent] = self._parse_source(source)
+    env: Dict[str, PyIdent]
 
-    def _parse_source(self, source: str) -> Dict[str, PyIdent]:
+    @staticmethod
+    def from_source(source: str) -> "NameEnv":
         tree = ast.parse(source)
-        ident_dict = {}
+        ident_dict: Dict[str, PyIdent] = {}
 
         class ImportVisitor(ast.NodeVisitor):
             def visit_Import(self, node):
@@ -56,7 +57,7 @@ class NameEnv:
                 self.generic_visit(node)
 
         ImportVisitor().visit(tree)
-        return ident_dict
+        return NameEnv(ident_dict)
 
     def get_import_line(self, pyident: PyIdent) -> Optional[str]:
         module_path = ".".join(pyident.module)
@@ -91,7 +92,7 @@ my_var = 10
 other_var: int = 20
 import models
 """
-    name_env = NameEnv(source_code)
+    name_env = NameEnv.from_source(source_code)
 
     os_ident = PyIdent(module=["os"], qual_name=["os"])
     namedtuple_ident = PyIdent(module=["collections"], qual_name=["namedtuple"])
@@ -126,7 +127,7 @@ my_var = 10
 other_var: int = 20
 import models
 """
-    name_env = NameEnv(source_code)
+    name_env = NameEnv.from_source(source_code)
 
     os_ident = PyIdent(module=["os"], qual_name=["os"])
     namedtuple_ident = PyIdent(module=["collections"], qual_name=["namedtuple"])
@@ -144,8 +145,8 @@ import models
     assert name_env.get_usage(char_field_ident) == "models.CharField"
 
 
-# Run the tests if the script is executed directly
-if __name__ == "__main__":
-    import pytest
+# # Run the tests if the script is executed directly
+# if __name__ == "__main__":
+#     import pytest
 
-    pytest.main([__file__])
+#     pytest.main([__file__])
