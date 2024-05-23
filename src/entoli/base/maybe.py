@@ -83,6 +83,7 @@ class Just(Generic[_A]):
 
 
 # class Nothing(_Maybe):
+@dataclass
 class Nothing:
     def __init__(self) -> None:
         pass

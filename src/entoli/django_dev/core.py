@@ -4,7 +4,7 @@ from pathlib import Path
 
 from typing import Callable, Iterable, List, Protocol, Dict
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from xmlrpc.client import Boolean
 from entoli.base.io import Io
 from entoli.base.maybe import Maybe, Nothing
@@ -31,10 +31,10 @@ class DjangoField(Protocol):
 @dataclass
 class BooleanField(DjangoField):
     null: bool = False
-    mb_default: Maybe[bool] = Nothing()
+    mb_default: Maybe[bool] = field(default_factory=lambda: Nothing())
     blank: bool = False
-    mb_verbose_name: Maybe[str] = Nothing()
-    mb_help_text: Maybe[str] = Nothing()
+    mb_verbose_name: Maybe[str] = field(default_factory=lambda: Nothing())
+    mb_help_text: Maybe[str] = field(default_factory=lambda: Nothing())
 
     def to_py_snippet(self, dep_env: Callable[[str], str], field_name: str) -> str:
         return f"{dep_env(f"{field_name}::BooleanField")}(null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
@@ -60,10 +60,10 @@ class BooleanField(DjangoField):
 class CharField(DjangoField):
     max_length: int
     null: bool = False
-    mb_default: Maybe[str] = Nothing()
+    mb_default: Maybe[str] = field(default_factory=lambda: Nothing())
     blank: bool = False
-    mb_verbose_name: Maybe[str] = Nothing()
-    mb_help_text: Maybe[str] = Nothing()
+    mb_verbose_name: Maybe[str] = field(default_factory=lambda: Nothing())
+    mb_help_text: Maybe[str] = field(default_factory=lambda: Nothing())
 
     # def to_py_snippet(self) -> str:
     #     return f"models.CharField(max_length={self.max_length}, null={self.null}, default={self.default}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else None})"

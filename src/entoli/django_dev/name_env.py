@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Iterable, Dict, List, Optional, Self
 import ast
 
+from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.django_dev.py_code import PyIdent
 
 
@@ -59,20 +60,25 @@ class NameEnv:
         ImportVisitor().visit(tree)
         return NameEnv(ident_dict)
 
-    def get_import_line(self, pyident: PyIdent) -> Optional[str]:
+    def get_import_line(self, pyident: PyIdent) -> Maybe[str]:
         module_path = ".".join(pyident.module)
         qual_name_path = ".".join(pyident.qual_name)
         if module_path:
-            return f"from {module_path} import {qual_name_path}"
-        return None
+            # return f"from {module_path} import {qual_name_path}"
+            return Just(f"from {module_path} import {qual_name_path}")
+        # return None
+        return Nothing()
 
-    def get_usage(self, pyident: PyIdent) -> Optional[str]:
+    def get_usage(self, pyident: PyIdent) -> Maybe[str]:
         for name, ident in self.env.items():
             if ident == pyident:
-                return name
+                # return name
+                return Just(name)
             if ident.module and pyident.module and ident.module[0] == pyident.module[0]:
-                return f"{ident.module[0]}.{'.'.join(pyident.qual_name)}"
-        return None
+                # return f"{ident.module[0]}.{'.'.join(pyident.qual_name)}"
+                return Just(f"{ident.module[0]}.{'.'.join(pyident.qual_name)}")
+        # return None
+        return Nothing()
 
 
 # In-file pytest tests
@@ -101,14 +107,21 @@ import models
     my_var_ident = PyIdent(module=[], qual_name=["my_var"])
     char_field_ident = PyIdent(module=["models"], qual_name=["CharField"])
 
-    assert name_env.get_import_line(os_ident) == "from os import os"
-    assert (
-        name_env.get_import_line(namedtuple_ident)
-        == "from collections import namedtuple"
+    # assert name_env.get_import_line(os_ident) == "from os import os"
+    assert name_env.get_import_line(os_ident) == Just("from os import os")
+    # assert (
+    #     name_env.get_import_line(namedtuple_ident)
+    #     == "from collections import namedtuple"
+    # )
+    assert name_env.get_import_line(namedtuple_ident) == Just(
+        "from collections import namedtuple"
     )
-    assert name_env.get_import_line(my_function_ident) is None
-    assert name_env.get_import_line(my_class_ident) is None
-    assert name_env.get_import_line(my_var_ident) is None
+    # assert name_env.get_import_line(my_function_ident) is None
+    assert name_env.get_import_line(my_function_ident) == Nothing()
+    # assert name_env.get_import_line(my_class_ident) is None
+    assert name_env.get_import_line(my_class_ident) == Nothing()
+    # assert name_env.get_import_line(my_var_ident) is None
+    assert name_env.get_import_line(my_var_ident) == Nothing()
 
 
 def test_get_usage():
@@ -136,13 +149,22 @@ import models
     my_var_ident = PyIdent(module=[], qual_name=["my_var"])
     char_field_ident = PyIdent(module=["models"], qual_name=["CharField"])
 
-    assert name_env.get_usage(os_ident) == "os"
-    assert name_env.get_usage(namedtuple_ident) == "namedtuple"
-    assert name_env.get_usage(my_function_ident) == "my_function"
-    assert name_env.get_usage(my_class_ident) == "MyClass"
-    assert name_env.get_usage(my_var_ident) == "my_var"
-    assert name_env.get_usage(PyIdent(module=[], qual_name=["non_existent"])) is None
-    assert name_env.get_usage(char_field_ident) == "models.CharField"
+    # assert name_env.get_usage(os_ident) == "os"
+    assert name_env.get_usage(os_ident) == Just("os")
+    # assert name_env.get_usage(namedtuple_ident) == "namedtuple"
+    assert name_env.get_usage(namedtuple_ident) == Just("namedtuple")
+    # assert name_env.get_usage(my_function_ident) == "my_function"
+    assert name_env.get_usage(my_function_ident) == Just("my_function")
+    # assert name_env.get_usage(my_class_ident) == "MyClass"
+    assert name_env.get_usage(my_class_ident) == Just("MyClass")
+    # assert name_env.get_usage(my_var_ident) == "my_var"
+    assert name_env.get_usage(my_var_ident) == Just("my_var")
+    # assert name_env.get_usage(PyIdent(module=[], qual_name=["non_existent"])) is None
+    assert (
+        name_env.get_usage(PyIdent(module=[], qual_name=["non_existent"])) == Nothing()
+    )
+    # assert name_env.get_usage(char_field_ident) == "models.CharField"
+    assert name_env.get_usage(char_field_ident) == Just("models.CharField")
 
 
 # # Run the tests if the script is executed directly

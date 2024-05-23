@@ -65,8 +65,8 @@ def read_process_with_exit_code(
 class CreateProcess:
     command: str
     use_shell: bool = True
-    cwd: Maybe[Path] = Nothing()
-    env: Maybe[Dict[str, str]] = Nothing()
+    cwd: Maybe[Path] = field(default_factory=lambda: Nothing())
+    env: Maybe[Dict[str, str]] = field(default_factory=lambda: Nothing())
     std_in: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
     std_out: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
     std_err: Maybe[Any] = field(default_factory=lambda: Just(subprocess.PIPE))
