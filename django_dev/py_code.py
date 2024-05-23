@@ -42,6 +42,35 @@ class PyIdent:
     def import_statement(self) -> str:
         return f"from {self.fully_qualified_name()} import {last(self.qual_name)}"
 
+    def includes(self, other: "PyIdent") -> bool:
+        self_fq_name = self.fully_qualified_name()
+        stripted_self = if_else(
+            self_fq_name.endswith(".*"),
+            self_fq_name[:-2],
+            self_fq_name,
+        )
+
+        return other.fully_qualified_name().startswith(stripted_self)
+
+    def relative_to(self, other: "PyIdent") -> str:
+        self_parts = concat([self.module, self.qual_name])
+        other_parts = concat([other.module, other.qual_name])
+
+        def _inner(
+            self_parts: Iterable[str], other_parts: Iterable[str]
+        ) -> Iterable[str]:
+            if (
+                self_parts == []
+                or other_parts == []
+                or head(self_parts) != head(other_parts)
+            ):
+                return self_parts
+            else:
+                return _inner(init(self_parts), init(other_parts))
+
+        # return _inner(self_parts, other_parts)
+        return ".".join(_inner(self_parts, other_parts))
+
 
 # Compilation takes dependency graph and generates a Io
 
