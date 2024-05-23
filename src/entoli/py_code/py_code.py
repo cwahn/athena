@@ -96,7 +96,7 @@ class PyIdent:
             self.full_qual_name_parts(), other.full_qual_name_parts()
         )
 
-    def inverse_name_env(self, name_env: "IdEnv") -> str:
+    def refered_as_in(self, name_env: "IdEnv") -> str:
         relevant_env = filter_map(
             lambda key_id: if_else(snd(key_id).includes(self), Just(key_id), Nothing()),
             name_env.inner.items(),
@@ -118,12 +118,12 @@ class PyIdent:
                     relevent_key + "." + self.relative_name_to(relevant_ident).unwrap()
                 )
 
-    def mb_import_line(self, name_env: "IdEnv") -> Maybe[str]:
+    def mb_import_line(self, id_env: "IdEnv") -> Maybe[str]:
         if self.module == []:  # In-file definition, no need to import
             return Nothing()
         else:
             mb_relevent = find(
-                lambda key_id: snd(key_id).includes(self), name_env.inner.items()
+                lambda key_id: snd(key_id).includes(self), id_env.inner.items()
             )
             if mb_relevent:  # Maybe already imported
                 return Nothing()
@@ -131,13 +131,13 @@ class PyIdent:
                 if not self.mb_name:  # Self is a module
                     if length(self.module) == 1:
                         modeule_name = head(self.module)
-                        if modeule_name in name_env.inner:
+                        if modeule_name in id_env.inner:
                             return Just(f"import {modeule_name} as {modeule_name}_")
                         else:
                             return Just(f"import {modeule_name}")
                     else:  # try to use from import
                         last_module_name = last(self.module)
-                        if last_module_name not in name_env.inner:  # No conflict
+                        if last_module_name not in id_env.inner:  # No conflict
                             # todo Actually in case of item with the same name with the module, it could be not a conflict.
                             return Just(
                                 f"from {init(self.module)} import {last_module_name}"
@@ -149,7 +149,7 @@ class PyIdent:
                 else:  # Self is a name in a module
                     fully_qualified = self.full_qual_name_parts()
                     last_name = last(fully_qualified)
-                    if last_name not in name_env.inner:
+                    if last_name not in id_env.inner:
                         return Just(f"from {init(fully_qualified)} import {last_name}")
                     else:
                         return Just(
@@ -277,13 +277,13 @@ class _TestPyIdent:
         )
 
         ident = PyIdent(module=["os"], mb_name=Just("os"))
-        assert ident.inverse_name_env(name_env) == "os"
+        assert ident.refered_as_in(name_env) == "os"
 
         ident = PyIdent(module=["os"], mb_name=Just("os.path"))
-        assert ident.inverse_name_env(name_env) == "os.path"
+        assert ident.refered_as_in(name_env) == "os.path"
 
         ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
-        assert ident.inverse_name_env(name_env) == "os.path.join"
+        assert ident.refered_as_in(name_env) == "os.path.join"
 
     def _test_PyIdent_mb_import_line(self):
         name_env = IdEnv(
@@ -456,3 +456,22 @@ class PyCode:
             lambda d: if_else(not d.is_strict, Just(d.ident), Nothing()),
             self.deps.values(),
         )
+
+
+def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
+    lines = content.split("\n")
+    # Find the end of the import statements
+    import_end = 0
+    for i, line in enumerate(lines):
+        if line.startswith("import ") or line.startswith("from "):
+            import_end = i + 1
+        elif line.strip() == "":
+            continue
+        else:
+            break
+
+    # Insert the new import line at the end of the imports
+    for line in import_lines:
+        lines.insert(import_end, line)
+    new_content = "\n".join(lines)
+    return new_content
