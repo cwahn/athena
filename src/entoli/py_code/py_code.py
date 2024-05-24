@@ -1,15 +1,13 @@
 import ast
-from curses import raw
 from dataclasses import dataclass
-import importlib
-from math import e
+from pathlib import Path
 from typing import Callable, Iterable, Dict
+from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
 from entoli.prelude import (
     append,
     elem,
-    for_each,
     map,
     filter_,
     concat,
@@ -30,6 +28,7 @@ from entoli.prelude import (
     tail,
     unique,
 )
+from entoli.system import read_file, write_file
 
 
 @dataclass
@@ -39,6 +38,11 @@ class PyIdent:
 
     def module_name(self) -> str:
         return ".".join(self.module)
+
+    def rel_module_path(self) -> Path:
+        file_name = last(self.module) + ".py"
+        module_init = init(self.module)
+        return Path(*module_init, file_name)
 
     def full_qual_name(self) -> str:
         match self.mb_name:
@@ -62,7 +66,6 @@ class PyIdent:
                 return False
 
     def is_wildcard(self) -> bool:
-        # return is_suffix_of(".*", self.full_qual_name())
         return is_suffix_of(["*"], self.full_qual_name_parts())
 
     def includes(self, other: "PyIdent") -> bool:
@@ -85,18 +88,13 @@ class PyIdent:
         ) -> Maybe[str]:
             match self_part:
                 case []:
-                    # raise ValueError(
-                    #     f"Name of {self} is not longer than other. Cannot be referred relative to {other}."
-                    # )
                     return Nothing()
                 case [self_head, *self_tail]:
                     match other_part:
                         case []:
-                            # return ".".join(self_part)
                             return Just(".".join(self_part))
                         case [other_head, *other_tail]:
                             if self_head != other_head:
-                                # return ".".join(self_part)
                                 return Just(".".join(self_part))
                             else:
                                 return _relative_name_to(self_tail, other_tail)
@@ -357,15 +355,6 @@ class IdEnv:
                         module_parts = md.split(".")
 
                 if "*" in [alias.name for alias in node.names]:
-                    # try:
-                    #     imported_module = importlib.import_module(node.module)
-                    #     for attr in dir(imported_module):
-                    #         if not attr.startswith("_"):
-                    #             env_map[attr] = PyIdent(
-                    #                 module=module_parts, mb_name=Just(attr)
-                    #             )
-                    # except ImportError:
-                    #     pass
                     env_map[node.module] = PyIdent(
                         module=module_parts, mb_name=Just("*")
                     )
@@ -433,11 +422,18 @@ other_var: int = 20
         assert id_env("other_var") == ".other_var"
 
 
+# Take depencies keys and return python idendifiers in the code
+ReferEnv = Callable[[str], str]
+
+
 @dataclass
 class PyCode:
     ident: PyIdent
-    code: Callable[[str], str]  # Assume that the file is already created
+    code: Callable[[ReferEnv, str], str]  # Assume that the file is already created
     deps: Map[str, PyDependecy]
+
+    def rel_module_path(self) -> Path:
+        return self.ident.rel_module_path()
 
     def strict_deps(self) -> Iterable[PyIdent]:
         return filter_map(
@@ -450,6 +446,17 @@ class PyCode:
             lambda d: if_else(not d.is_strict, Just(d.ident), Nothing()),
             self.deps.values(),
         )
+
+    def code_with_refer(
+        self, imported_content: str
+    ) -> str:  # Assume all the dependencies are already imported
+        id_env = IdEnv.from_file(imported_content)
+
+        def refer(dep_key: str) -> str:
+            dep_ident = self.deps[dep_key].ident
+            return dep_ident.refered_as_in(id_env)
+
+        return self.code(refer, imported_content)
 
 
 def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
@@ -519,7 +526,7 @@ def _no_strict_circular_deps(codes: Iterable[PyCode]) -> bool:
     return all(map(lambda c: not_in_circle([], c), codes))
 
 
-def are_valid_codes(codes: Iterable[PyCode]) -> bool:
+def _are_valid_codes(codes: Iterable[PyCode]) -> bool:
     return (
         _all_idents_unique(codes)
         and _all_deps_present(codes)
@@ -537,17 +544,17 @@ def _test_are_valid_codes():
     default_codes = [
         PyCode(
             ident=default_idents[0],
-            code=lambda _: "",  # No actual implementation
+            code=lambda _, __: "",  # No actual implementation
             deps=Map(),
         ),
         PyCode(
             ident=default_idents[1],
-            code=lambda _: "",  # No actual implementation
+            code=lambda _, __: "",  # No actual implementation
             deps=Map(),
         ),
         PyCode(
             ident=default_idents[2],
-            code=lambda _: "",  # No actual implementation
+            code=lambda _, __: "",  # No actual implementation
             deps=Map(),
         ),
     ]
@@ -560,7 +567,7 @@ def _test_are_valid_codes():
     custom_codes = [
         PyCode(
             ident=custom_idents[0],
-            code=lambda _: "print('Hello World')",
+            code=lambda _, __: "print('Hello World')",
             deps=Map(
                 [
                     ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
@@ -570,7 +577,7 @@ def _test_are_valid_codes():
         ),
         PyCode(
             ident=custom_idents[1],
-            code=lambda _: "class MyClass: pass",
+            code=lambda _, __: "class MyClass: pass",
             deps=Map(
                 [
                     ("join", PyDependecy(ident=default_idents[2], is_strict=True)),
@@ -590,7 +597,7 @@ def _test_are_valid_codes():
     assert _all_deps_present(codes)
     assert _all_idents_unique(codes)
     assert _no_strict_circular_deps(codes)
-    assert are_valid_codes(codes)
+    assert _are_valid_codes(codes)
 
     # Add missing dependency to custom codes
     missing_ident = PyIdent(module=["missing"], mb_name=Just("missing"))
@@ -598,7 +605,7 @@ def _test_are_valid_codes():
     assert not _all_deps_present(codes)
     assert _all_idents_unique(codes)
     assert _no_strict_circular_deps(codes)
-    assert not are_valid_codes(codes)
+    assert not _are_valid_codes(codes)
 
     # Remove the missing dependency
     del custom_codes[0].deps["missing"]
@@ -607,14 +614,14 @@ def _test_are_valid_codes():
     assert _all_deps_present(duplicated_codes)
     assert not _all_idents_unique(duplicated_codes)
     assert _no_strict_circular_deps(duplicated_codes)
-    assert not are_valid_codes(duplicated_codes)
+    assert not _are_valid_codes(duplicated_codes)
 
     # Introduce a circular dependency to check for invalid codes
     custom_codes[0].deps["join"] = PyDependecy(ident=custom_idents[1], is_strict=True)
     assert _all_deps_present(codes)
     assert _all_idents_unique(codes)
     assert not _no_strict_circular_deps(codes)
-    assert not are_valid_codes(codes)
+    assert not _are_valid_codes(codes)
 
 
 def _mb_free_code(
@@ -648,7 +655,7 @@ def _mb_loosely_free_code(
         return Nothing()
 
 
-def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
+def _raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
     def _raw_ordered_codes(
         acc: Iterable[PyCode], unordered: Iterable[PyCode]
     ) -> Iterable[PyCode]:
@@ -685,17 +692,17 @@ def _test_raw_ordered_codes():
     default_codes = [
         PyCode(
             ident=default_idents[0],
-            code=lambda _: "",  # No actual implementation
+            code=lambda _, __: "",  # No actual implementation
             deps=Map(),
         ),
         PyCode(
             ident=default_idents[1],
-            code=lambda _: "",  # No actual implementation
+            code=lambda _, __: "",  # No actual implementation
             deps=Map(),
         ),
         PyCode(
             ident=default_idents[2],
-            code=lambda _: "",  # No actual implementation
+            code=lambda _, __: "",  # No actual implementation
             deps=Map(),
         ),
     ]
@@ -708,7 +715,7 @@ def _test_raw_ordered_codes():
     custom_codes = [
         PyCode(
             ident=custom_idents[0],
-            code=lambda _: "print('Hello World')",
+            code=lambda _, __: "print('Hello World')",
             deps=Map(
                 [
                     ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
@@ -718,7 +725,7 @@ def _test_raw_ordered_codes():
         ),
         PyCode(
             ident=custom_idents[1],
-            code=lambda _: "class MyClass: pass",
+            code=lambda _, __: "class MyClass: pass",
             deps=Map(
                 [("join", PyDependecy(ident=default_idents[2], is_strict=True))],
             ),
@@ -728,7 +735,7 @@ def _test_raw_ordered_codes():
     # Combine all codes
     codes = custom_codes + default_codes
 
-    assert raw_ordered_codes(codes) == [
+    assert _raw_ordered_codes(codes) == [
         default_codes[0],
         default_codes[1],
         custom_codes[0],
@@ -738,7 +745,7 @@ def _test_raw_ordered_codes():
 
     custom_codes[0].deps["join"] = PyDependecy(ident=default_idents[2], is_strict=True)
 
-    assert raw_ordered_codes(codes) == [
+    assert _raw_ordered_codes(codes) == [
         default_codes[0],
         default_codes[1],
         default_codes[2],
@@ -749,8 +756,35 @@ def _test_raw_ordered_codes():
     # assert False
 
 
-def ordered_codes(codes: Iterable[PyCode]) -> Maybe[Iterable[PyCode]]:
-    if are_valid_codes(codes):
-        return Just(raw_ordered_codes(codes))
+def mb_ordered_codes(codes: Iterable[PyCode]) -> Maybe[Iterable[PyCode]]:
+    if _are_valid_codes(codes):
+        return Just(_raw_ordered_codes(codes))
     else:
         return Nothing()
+
+
+def amended_content(content: str, code: PyCode) -> str:
+    id_env = IdEnv.from_file(content)
+
+    dep_idents = map(lambda dep: dep.ident, code.deps.values())
+    import_lines = filter_map(lambda ident: ident.mb_import_line(id_env), dep_idents)
+
+    imported_content = append_import_lines(content, import_lines)
+
+    return code.code_with_refer(imported_content)
+
+
+def write_code(dir_path: Path, code: PyCode) -> Io[None]:
+    file_path = dir_path / code.ident.rel_module_path()
+
+    return read_file(file_path).and_then(
+        lambda content: write_file(file_path, amended_content(content, code))
+    )
+
+
+def write_codes(dir_path: Path, codes: Iterable[PyCode]) -> Io[None]:
+    return foldl(
+        lambda io, code: io.then(write_code(dir_path, code)),
+        Io.pure(None),
+        codes,
+    )

@@ -1,13 +1,16 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from pyexpat import model
-from typing import Iterable, Protocol, List
+from typing import Callable, Iterable, Protocol, List
 
 from entoli.prelude import concat, filter_map, map
 from entoli.py_code.py_code import (
     PyCode,
     PyDependecy,
     PyIdent,
+    ReferEnv,
     append_import_lines,
+    write_codes,
 )
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
@@ -16,7 +19,7 @@ from entoli.py_code.py_code import IdEnv
 
 @dataclass
 class DjangoField(Protocol):
-    def to_py_snippet(self, id_env: IdEnv, field_name) -> str: ...
+    def to_py_snippet(self, refer: ReferEnv, field_name) -> str: ...
     # def deps(self) -> Iterable[PyDependecy]: ...
     def deps(self) -> Map[str, PyDependecy]: ...
 
@@ -29,8 +32,8 @@ class BooleanField(DjangoField):
     mb_verbose_name: Maybe[str] = field(default_factory=Nothing)
     mb_help_text: Maybe[str] = field(default_factory=Nothing)
 
-    def to_py_snippet(self, id_env: IdEnv, field_name) -> str:
-        return f"{self.deps()["BooleanField"].ident.refered_as_in(id_env)}(null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
+    def to_py_snippet(self, refer: ReferEnv, field_name) -> str:
+        return f"{refer('BooleanField')}(null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
 
     def deps(self) -> Map[str, PyDependecy]:
         return Map(
@@ -57,8 +60,8 @@ class CharField(DjangoField):
     mb_verbose_name: Maybe[str] = field(default_factory=Nothing)
     mb_help_text: Maybe[str] = field(default_factory=Nothing)
 
-    def to_py_snippet(self, id_env: IdEnv, field_name) -> str:
-        return f"{self.deps()["CharField"].ident.refered_as_in(id_env)}(max_length={self.max_length}, null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
+    def to_py_snippet(self, refer: ReferEnv, field_name) -> str:
+        return f"{refer('CharField')}(max_length={self.max_length}, null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
 
     def deps(self) -> Map[str, PyDependecy]:
         return Map(
@@ -109,25 +112,12 @@ class DjangoModel:
             ]
         )
 
-        def _definition_code(content: str) -> str:
-            id_env = IdEnv.from_file(content)
-
-            field_deps = concat(map(lambda f: f.deps().values(), self.fields.values()))
-            all_deps = concat([definition_deps.values(), field_deps])
-
-            dep_idents = map(lambda dep: dep.ident, all_deps)
-            import_lines = filter_map(
-                lambda ident: ident.mb_import_line(id_env), dep_idents
-            )
-
-            imported_content = append_import_lines(content, import_lines)
-            imported_id_env = IdEnv.from_file(imported_content)
-
+        def _definition_code(refer: ReferEnv, imported_content) -> str:
             def_lines = "\n".join(
                 [
-                    f"class {self.name}({definition_deps["django_model"].ident.refered_as_in(imported_id_env)}.Model):",
+                    f"class {self.name}({refer('django_model')}.Model):",
                     *[
-                        f"    {field_name}: {field.to_py_snippet(id_env, field_name)}"
+                        f"    {field_name}: {field.to_py_snippet(refer, field_name)}"
                         for field_name, field in self.fields.items()
                     ],
                 ]
@@ -164,23 +154,13 @@ class DjangoModel:
             ]
         )
 
-        def _model_form_code(content: str) -> str:
-            id_env = IdEnv.from_file(content)
-
-            dep_idents = map(lambda dep: dep.ident, model_from_deps.values())
-            import_lines = filter_map(
-                lambda ident: ident.mb_import_line(id_env), dep_idents
-            )
-
-            imported_content = append_import_lines(content, import_lines)
-            imported_id_env = IdEnv.from_file(imported_content)
-
+        def _model_form_code(refer: ReferEnv, imported_content: str) -> str:
             model_form_lines = "\n".join(
                 [
-                    f"class {self.name}Form({model_from_deps['django_forms'].ident.refered_as_in(imported_id_env)}.ModelForm):",
-                    f"    class Meta:",
-                    f"        model = {model_from_deps['self_model'].ident.refered_as_in(imported_id_env)}",
-                    f"        fields = '__all__'",
+                    f"class {self.name}Form({refer('django_form')}.ModelForm):",
+                    "    class Meta:",
+                    f"        model = {refer('self_model')}",
+                    "        fields = '__all__'",
                 ]
             )
 
@@ -217,21 +197,9 @@ class DjangoModel:
             ]
         )
 
-        def _admin_code(content: str) -> str:
-            id_env = IdEnv.from_file(content)
-
-            dep_idents = map(lambda dep: dep.ident, admin_deps.values())
-            import_lines = filter_map(
-                lambda ident: ident.mb_import_line(id_env), dep_idents
-            )
-
-            imported_content = append_import_lines(content, import_lines)
-            imported_id_env = IdEnv.from_file(imported_content)
-
+        def _admin_code(refer: ReferEnv, imported_content: str) -> str:
             admin_lines = "\n".join(
-                [
-                    f"{admin_deps['admin'].ident.refered_as_in(imported_id_env)}.site.register({  admin_deps['self_model'].ident.refered_as_in(imported_id_env) })"
-                ]
+                [f"{refer('admin')}.site.register({refer('self_model')})"]
             )
 
             return f"{imported_content}\n{admin_lines}"
@@ -256,17 +224,7 @@ class DjangoApp:
     def to_py_codes(self, project_name: str) -> Iterable[PyCode]:
         installed_apps_deps = Map([])
 
-        def _installed_apps_code(content: str) -> str:
-            id_env = IdEnv.from_file(content)
-
-            dep_idents = map(lambda dep: dep.ident, installed_apps_deps.values())
-            import_lines = filter_map(
-                lambda ident: ident.mb_import_line(id_env), dep_idents
-            )
-
-            imported_content = append_import_lines(content, import_lines)
-            imported_id_env = IdEnv.from_file(imported_content)
-
+        def _installed_apps_code(refer: ReferEnv, imported_content: str) -> str:
             installed_apps_lines = "\n".join(
                 [
                     "INSTALLED_APPS += [",
@@ -318,20 +276,10 @@ class DjangoApp:
             ]
         )
 
-        def _add_to_project_urls_code(content: str) -> str:
-            id_env = IdEnv.from_file(content)
-
-            dep_idents = map(lambda dep: dep.ident, add_to_project_urls_deps.values())
-            import_lines = filter_map(
-                lambda ident: ident.mb_import_line(id_env), dep_idents
-            )
-
-            imported_content = append_import_lines(content, import_lines)
-            imported_id_env = IdEnv.from_file(imported_content)
-
+        def _add_to_project_urls_code(refer: ReferEnv, imported_content: str) -> str:
             add_to_project_urls_lines = "\n".join(
                 [
-                    f"path('{self.name}/', include('{add_to_project_urls_deps['self_urls'].ident.refered_as_in(imported_id_env)}'))",
+                    f"path('{self.name}/', include('{refer('self_urls')}')),",
                 ]
             )
 
@@ -373,9 +321,10 @@ class DjangoProject:
 
         return model_codes
 
-    def write(self, dir_path: str):
+    def write(self, dir_path: Path):
         codes = self.to_py_codes()
 
-        return write_codes(codes, dir_path)
+        return write_codes(dir_path, codes)
+
 
 # todo Make refer function
