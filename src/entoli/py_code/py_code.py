@@ -2,6 +2,7 @@ import ast
 from curses import raw
 from dataclasses import dataclass
 import importlib
+from math import e
 from typing import Callable, Iterable, Dict
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
@@ -232,26 +233,6 @@ class _TestPyIdent:
         other = PyIdent(module=["os"], mb_name=Just("os"))
         assert ident.includes(other)
 
-        # ident = PyIdent(module=["os"], mb_name=Just("os"))
-        # other = PyIdent(module=["os"], mb_name=Just("os.path"))
-        # assert ident.includes(other)
-
-        # ident = PyIdent(module=["os"], mb_name=Just("os.path"))
-        # other = PyIdent(module=["os"], mb_name=Just("os"))
-        # assert not ident.includes(other)
-
-        # ident = PyIdent(module=["os"], mb_name=Just("os.path"))
-        # other = PyIdent(module=["os"], mb_name=Just("os.path"))
-        # assert ident.includes(other)
-
-        # ident = PyIdent(module=["os"], mb_name=Just("os.path"))
-        # other = PyIdent(module=["os"], mb_name=Just("os.path.join"))
-        # assert ident.includes(other)
-
-        # ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
-        # other = PyIdent(module=["os"], mb_name=Just("os.path"))
-        # assert not ident.includes(other)
-
     def _test_PyIdent_relative_name_to(self):
         # Qualified names are not considered.
         # This is for module-level or upper.
@@ -376,15 +357,18 @@ class IdEnv:
                         module_parts = md.split(".")
 
                 if "*" in [alias.name for alias in node.names]:
-                    try:
-                        imported_module = importlib.import_module(node.module)
-                        for attr in dir(imported_module):
-                            if not attr.startswith("_"):
-                                env_map[attr] = PyIdent(
-                                    module=module_parts, mb_name=Just(attr)
-                                )
-                    except ImportError:
-                        pass
+                    # try:
+                    #     imported_module = importlib.import_module(node.module)
+                    #     for attr in dir(imported_module):
+                    #         if not attr.startswith("_"):
+                    #             env_map[attr] = PyIdent(
+                    #                 module=module_parts, mb_name=Just(attr)
+                    #             )
+                    # except ImportError:
+                    #     pass
+                    env_map[node.module] = PyIdent(
+                        module=module_parts, mb_name=Just("*")
+                    )
 
                 else:
                     for alias in node.names:
@@ -577,10 +561,6 @@ def _test_are_valid_codes():
         PyCode(
             ident=custom_idents[0],
             code=lambda _: "print('Hello World')",
-            # deps={
-            #     "os": PyDependecy(ident=default_idents[0], is_strict=True),
-            #     "path": PyDependecy(ident=default_idents[1], is_strict=True),
-            # },
             deps=Map(
                 [
                     ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
@@ -591,9 +571,6 @@ def _test_are_valid_codes():
         PyCode(
             ident=custom_idents[1],
             code=lambda _: "class MyClass: pass",
-            # deps={
-            #     "join": PyDependecy(ident=default_idents[2], is_strict=True),
-            # },
             deps=Map(
                 [
                     ("join", PyDependecy(ident=default_idents[2], is_strict=True)),
@@ -770,3 +747,10 @@ def _test_raw_ordered_codes():
     ]
 
     # assert False
+
+
+def ordered_codes(codes: Iterable[PyCode]) -> Maybe[Iterable[PyCode]]:
+    if are_valid_codes(codes):
+        return Just(raw_ordered_codes(codes))
+    else:
+        return Nothing()
