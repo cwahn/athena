@@ -35,23 +35,23 @@ def head(xs: Iterable[_A]) -> _A:
 
 
 def tail(xs: Iterable[_A]) -> Iterable[_A]:
-    def tail_():
+    def _tail():
         it = iter(xs)
         next(it)
         return it
 
-    return Seq(tail_)
+    return Seq(_tail)
 
 
 def init(xs: Iterable[_A]) -> Iterable[_A]:
-    def init_():
+    def _init():
         it = iter(xs)
         prev = next(it)
         for curr in it:
             yield prev
             prev = curr
 
-    return Seq(init_)
+    return Seq(_init)
 
 
 def last(xs: Iterable[_A]) -> _A:
@@ -71,36 +71,23 @@ def reverse(xs: Iterable[_A]) -> Iterable[_A]:
     return list(reversed(list(xs)))
 
 
-# def take(n: int, xs: Iterable[_A]) -> Iterator[_A]:
-#     it = iter(xs)
-#     for _ in range(n):
-#         yield next(it)
-
-
 def take(n: int, xs: Iterable[_A]) -> Iterable[_A]:
-    def take_():
+    def _take():
         it = iter(xs)
         for _ in range(n):
             yield next(it)
 
-    return Seq(take_)
-
-
-# def drop(n: int, xs: Iterable[_A]) -> Iterator[_A]:
-#     it = iter(xs)
-#     for _ in range(n):
-#         next(it)
-#     return it
+    return Seq(_take)
 
 
 def drop(n: int, xs: Iterable[_A]) -> Iterable[_A]:
-    def drop_():
+    def _drop():
         it = iter(xs)
         for _ in range(n):
             next(it)
         return it
 
-    return Seq(drop_)
+    return Seq(_drop)
 
 
 def elem(x: _A, xs: Iterable[_A]) -> bool:
@@ -146,20 +133,9 @@ def find_index(f: Callable[[_A], bool], xs: Iterable[_A]) -> Maybe[int]:
     return Nothing()
 
 
-# def unzip(pairs: Iterable[Tuple[_A, _B]]) -> Tuple[Iterator[_A], Iterator[_B]]:
-#     a, b = zip(*pairs)
-#     return iter(a), iter(b)  # type: ignore
-
-
 def unzip(pairs: Iterable[Tuple[_A, _B]]) -> Tuple[Iterable[_A], Iterable[_B]]:
     a, b = zip(*pairs)
     return Seq(lambda: iter(a)), Seq(lambda: iter(b))
-
-
-# def concat(xss: Iterable[Iterable[_A]]) -> Iterator[_A]:
-#     for xs in xss:
-#         for x in xs:
-#             yield x
 
 
 def concat(xss: Iterable[Iterable[_A]]) -> Iterable[_A]:
@@ -174,19 +150,8 @@ def _test_concat():
     assert concat([[1, 2], [3, 4], [5, 6]]) == [1, 2, 3, 4, 5, 6]
 
 
-# def intersperse(x: _A, xs: Iterable[_A]) -> Iterator[_A]:
-#     it = iter(xs)
-#     try:
-#         yield next(it)
-#         for y in it:
-#             yield x
-#             yield y
-#     except StopIteration:
-#         return
-
-
 def intersperse(x: _A, xs: Iterable[_A]) -> Iterable[_A]:
-    def intersperse_():
+    def _intersperse():
         it = iter(xs)
         try:
             yield next(it)
@@ -196,22 +161,11 @@ def intersperse(x: _A, xs: Iterable[_A]) -> Iterable[_A]:
         except StopIteration:
             return
 
-    return Seq(intersperse_)
-
-
-# def intercalate(sep: Iterable[_A], xss: Iterable[Iterable[_A]]) -> Iterator[_A]:
-#     it = iter(xss)
-#     try:
-#         yield from next(it)
-#         for xs in it:
-#             yield from sep
-#             yield from xs
-#     except StopIteration:
-#         return
+    return Seq(_intersperse)
 
 
 def intercalate(sep: Iterable[_A], xss: Iterable[Iterable[_A]]) -> Iterable[_A]:
-    def intercalate_():
+    def _intercalate():
         it = iter(xss)
         try:
             yield from next(it)
@@ -221,13 +175,7 @@ def intercalate(sep: Iterable[_A], xss: Iterable[Iterable[_A]]) -> Iterable[_A]:
         except StopIteration:
             return
 
-    return Seq(intercalate_)
-
-
-# def transpose(xss: Iterable[Iterable[_A]]) -> Iterator[Iterator[_A]]:
-#     if not xss:
-#         return iter([])
-#     return iter(map(iter, zip(*xss)))
+    return Seq(_intercalate)
 
 
 def transpose(xss: Iterable[Iterable[_A]]) -> Iterable[Iterable[_A]]:
