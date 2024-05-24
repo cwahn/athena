@@ -5,9 +5,12 @@ from typing import Callable, Iterable, Dict
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
 from entoli.prelude import (
+    elem,
+    map,
     concat,
     filter_map,
     find,
+    foldl,
     if_else,
     fst,
     head,
@@ -18,6 +21,7 @@ from entoli.prelude import (
     snd,
     init,
     tail,
+    unique,
 )
 
 
@@ -475,3 +479,129 @@ def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
         lines.insert(import_end, line)
     new_content = "\n".join(lines)
     return new_content
+
+
+def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
+    idents = map(lambda c: c.ident, codes)
+
+    def is_unique(acc: bool, id: PyIdent) -> bool:
+        return acc and (id not in idents)
+
+    return foldl(is_unique, True, idents)
+
+
+def _all_deps_present(codes: Iterable[PyCode]) -> bool:
+    present_idents = concat(map(lambda c: c.deps.values(), codes))
+    all_deps = unique(
+        concat(map(lambda c: concat(map(lambda d: [d.ident], c.deps.values())), codes))
+    )
+
+    def _is_present(acc: bool, dep: PyDependecy) -> bool:
+        res = elem(dep.ident, present_idents)
+        if not res:
+            raise ValueError(f"Dependency {dep.ident} is not present.")
+        return acc and res
+
+    return foldl(_is_present, True, all_deps)
+
+
+def _no_strict_circular_deps(codes: Iterable[PyCode]) -> bool:
+    def not_in_circle(visited: Iterable[PyIdent], code: PyCode) -> bool:
+        if code.ident in visited:
+            return False
+        else:
+            return all(
+                not_in_circle(concat([visited, [code.ident]]), c)
+                for c in codes
+                if c.ident in code.strict_deps()
+            )
+
+    return all(map(lambda c: not_in_circle([], c), codes))
+
+
+def are_valid_codes(codes: Iterable[PyCode]) -> bool:
+    return (
+        _all_idents_unique(codes)
+        and _all_deps_present(codes)
+        and _no_strict_circular_deps(codes)
+    )
+
+
+def _test_are_valid_codes():
+    # Predefined (default) codes
+    default_idents = [
+        PyIdent(module=["os"], mb_name=Just("os")),
+        PyIdent(module=["os"], mb_name=Just("path")),
+        PyIdent(module=["os"], mb_name=Just("join")),
+    ]
+    default_codes = [
+        PyCode(
+            ident=default_idents[0],
+            code=lambda _: "",  # No actual implementation
+            deps=Map(),
+        ),
+        PyCode(
+            ident=default_idents[1],
+            code=lambda _: "",  # No actual implementation
+            deps=Map(),
+        ),
+        PyCode(
+            ident=default_idents[2],
+            code=lambda _: "",  # No actual implementation
+            deps=Map(),
+        ),
+    ]
+
+    # Custom codes
+    custom_idents = [
+        PyIdent(module=["my_module"], mb_name=Just("my_function")),
+        PyIdent(module=["my_module"], mb_name=Just("MyClass")),
+    ]
+    custom_codes = [
+        PyCode(
+            ident=custom_idents[0],
+            code=lambda _: "print('Hello World')",
+            # deps={
+            #     "os": PyDependecy(ident=default_idents[0], is_strict=True),
+            #     "path": PyDependecy(ident=default_idents[1], is_strict=True),
+            # },
+            deps=Map(
+                [
+                    ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
+                    ("path", PyDependecy(ident=default_idents[1], is_strict=True)),
+                ]
+            ),
+        ),
+        PyCode(
+            ident=custom_idents[1],
+            code=lambda _: "class MyClass: pass",
+            # deps={
+            #     "join": PyDependecy(ident=default_idents[2], is_strict=True),
+            # },
+            deps=Map(
+                [("join", PyDependecy(ident=default_idents[2], is_strict=True))],
+            ),
+        ),
+    ]
+
+    # Combine all codes
+    codes = default_codes + custom_codes
+
+    # Assertions to check validity
+    assert _all_deps_present(codes)
+    assert _all_idents_unique(codes)
+    assert _no_strict_circular_deps(codes)
+    assert are_valid_codes(codes)
+
+    # Introduce a circular dependency to check for invalid codes
+    custom_codes[0].deps["join"] = PyDependecy(ident=custom_idents[1], is_strict=True)
+    assert not are_valid_codes(codes)
+
+    # Fix the previous issue but introduce another circular dependency
+    custom_codes[0].deps["join"] = PyDependecy(ident=default_idents[2], is_strict=True)
+    custom_codes[1].deps["os"] = PyDependecy(ident=custom_idents[0], is_strict=True)
+    assert not are_valid_codes(codes)
+
+    # Correct the dependencies to be valid again
+    custom_codes[1].deps["os"] = PyDependecy(ident=default_idents[0], is_strict=True)
+    assert are_valid_codes(codes)

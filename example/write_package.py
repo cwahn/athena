@@ -35,13 +35,7 @@ def_greet = PyCode(
     ident=PyIdent(
         module=["auto_generated", "some_package", "some_module"], qual_name=["greet"]
     ),
-    # code=[
-    #     "greet = (",
-    #     "    put_strln('What is your name?')",
-    #     "    .then(get_str)",
-    #     "    .and_then(lambda name: put_strln(f'Hello, {name}!'))",
-    #     ")",
-    # ],
+
     code=lambda path: append_file(
         path,
         "\n".join(

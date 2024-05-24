@@ -351,23 +351,6 @@ def importing_and_use_as(
 
 
 def import_line(ident: PyIdent, importing: str) -> str:
-    # is_module = len(ident.qual_name) == 0
-    # is_module = length(ident.qual_name) == 0
-
-    # if is_module:
-    #     need_as = ".".join(ident.module) != importing
-    #     if need_as:
-    #         # return f"import {ident.module[-1]} as {import_as}"
-    #         return f"import {last(ident.module)} as {importing}"
-    #     else:
-    #         # return f"import {ident.module[-1]}"
-    #         return f"import {last(ident.module)}"
-    # else:  # item in module
-    #     need_as = ".".join(ident.qual_name) != importing
-    #     if need_as:
-    #         return f"from {".".join(ident.module)} import {".".join(ident.qual_name)} as {importing}"
-    #     else:
-    #         return f"from {".".join(ident.module)} import {".".join(ident.qual_name)}"
 
     importing_parts = importing.split(".")
     importing_symbol = last(importing_parts)

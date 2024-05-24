@@ -2,9 +2,13 @@ from dataclasses import dataclass, field
 from pyexpat import model
 from typing import Iterable, Protocol, List
 
-from django_dev.py_code import append_import_lines
 from entoli.prelude import concat, filter_map, map
-from entoli.py_code.py_code import PyCode, PyDependecy, PyIdent
+from entoli.py_code.py_code import (
+    PyCode,
+    PyDependecy,
+    PyIdent,
+    append_import_lines,
+)
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
 from entoli.py_code.py_code import IdEnv

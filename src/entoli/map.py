@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Generic, Iterable, Iterator, Set, TypeVar, Tuple
 
 from entoli.base.seq import Seq
@@ -11,7 +11,7 @@ _B = TypeVar("_B")
 # todo Need extra optimization
 @dataclass
 class Map(Generic[_A, _B]):
-    inner: list[Tuple[_A, _B]]
+    inner: list[Tuple[_A, _B]] = field(default_factory=list)
 
     def __iter__(self) -> Iterator[Tuple[_A, _B]]:
         return self.inner.__iter__()

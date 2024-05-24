@@ -18,12 +18,6 @@ def filter(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
     return Seq(lambda: (x for x in xs if f(x)))
 
 
-# def filter_map(f: Callable[[_A], Optional[_A]], xs: Iterable[_A]) -> Iterator[_A]:
-#     for x in xs:
-#         if (y := f(x)) is not None:
-#             yield y
-
-
 def filter_map(f: Callable[[_A], Maybe[_B]], xs: Iterable[_A]) -> Iterable[_B]:
     return Seq(lambda: (y.unwrap() for x in xs if (y := f(x))))
 
@@ -36,12 +30,6 @@ def head(xs: Iterable[_A]) -> _A:
     return next(iter(xs))
 
 
-# def tail(xs: Iterable[_A]) -> Iterator[_A]:
-#     it = iter(xs)
-#     next(it)
-#     return it
-
-
 def tail(xs: Iterable[_A]) -> Iterable[_A]:
     def tail_():
         it = iter(xs)
@@ -49,14 +37,6 @@ def tail(xs: Iterable[_A]) -> Iterable[_A]:
         return it
 
     return Seq(tail_)
-
-
-# def init(xs: Iterable[_A]) -> Iterator[_A]:
-#     it = iter(xs)
-#     prev = next(it)
-#     for curr in it:
-#         yield prev
-#         prev = curr
 
 
 def init(xs: Iterable[_A]) -> Iterable[_A]:
@@ -80,10 +60,6 @@ def length(xs: Iterable[_A]) -> int:
 
 def null(xs: Iterable[_A]) -> bool:
     return not any(True for _ in xs)
-
-
-# def reverse(xs: Iterable[_A]) -> Iterator[_A]:
-#     return iter(reversed(list(xs)))
 
 
 # ! For some reason, reversed iterator is not working with pattern matching correctly
@@ -230,8 +206,17 @@ def transpose(xss: Iterable[Iterable[_A]]) -> Iterable[Iterable[_A]]:
 # Additional functions
 
 
+# def unique(seq: Iterable[_A]) -> Iterable[_A]:
+#     return Seq(lambda: (x for x in set(seq)))
+
+
 def unique(seq: Iterable[_A]) -> Iterable[_A]:
-    return Seq(lambda: (x for x in set(seq)))
+    def _unique(acc: Iterable[_A], x: _A) -> Iterable[_A]:
+        if x not in acc:
+            return (*acc, x)
+        return acc
+
+    return foldl(_unique, (), seq)
 
 
 def sort(seq: Iterable[_A]) -> Iterable[_A]:
