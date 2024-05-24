@@ -487,27 +487,38 @@ def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
 def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
     idents: Iterable[PyIdent] = map(lambda c: c.ident, codes)
 
-    def is_unique(acc: bool, id: PyIdent) -> bool:
-        return acc and (id not in idents)
+    def _inner(acc: Maybe[Iterable[PyIdent]], id: PyIdent) -> Maybe[Iterable[PyIdent]]:
+        match acc:
+            case Nothing():
+                return Nothing()
+            case Just(visited_idents):
+                if id in visited_idents:
+                    return Nothing()
+                else:
+                    return Just(concat([visited_idents, [id]]))
 
-    return foldl(is_unique, True, idents)
+    res = foldl(_inner, Just(list[PyIdent]()), idents)
+
+    if res == Nothing():
+        return False
+    else:
+        return True
 
 
 def _all_deps_present(codes: Iterable[PyCode]) -> bool:
-    present_idents = concat(map(lambda c: c.deps.values(), codes))
+    all_deps = concat(map(lambda c: c.deps.values(), codes))
 
     print(f"codes: {pstr(codes)}")
-    print(f"present_idents: {pstr(present_idents)}")
+    print(f"present_idents: {pstr(list(all_deps))}")
+    assert PyDependecy(PyIdent(module=["os"], mb_name=Just("os"))) in all_deps
 
     code_depss = map(lambda c: c.deps.values(), codes)
     all_deps = concat(code_depss)
 
     def _is_present(acc: bool, dep: PyDependecy) -> bool:
-        res = elem(dep.ident, present_idents)
+        res = elem(dep, all_deps)
         if not res:
-            raise ValueError(
-                f"Dependency {dep.ident} is not present in {pstr((present_idents))}"
-            )
+            raise ValueError(f"Dependency {dep} is not present in {pstr((all_deps))}")
         return acc and res
 
     return foldl(_is_present, True, all_deps)
@@ -649,9 +660,9 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
         if unordered == []:
             return acc
         else:
-            if mb_code := mb_free_code(acc):
+            if mb_code := mb_free_code(unordered):
                 return _order(concat([acc, [mb_code.unwrap()]]), unordered)
-            elif mb_code := mb_loosely_free_code(acc):
+            elif mb_code := mb_loosely_free_code(unordered):
                 return _order(concat([acc, [mb_code.unwrap()]]), unordered)
             else:
                 # ! temp
