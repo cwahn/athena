@@ -7,6 +7,7 @@ from entoli.map import Map
 from entoli.prelude import (
     elem,
     map,
+    filter,
     concat,
     filter_map,
     find,
@@ -20,6 +21,7 @@ from entoli.prelude import (
     length,
     snd,
     init,
+    sort_on,
     tail,
     unique,
 )
@@ -482,7 +484,7 @@ def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
 
 
 def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
-    idents = map(lambda c: c.ident, codes)
+    idents: Iterable[PyIdent] = map(lambda c: c.ident, codes)
 
     def is_unique(acc: bool, id: PyIdent) -> bool:
         return acc and (id not in idents)
@@ -605,3 +607,109 @@ def _test_are_valid_codes():
     # Correct the dependencies to be valid again
     custom_codes[1].deps["os"] = PyDependecy(ident=default_idents[0], is_strict=True)
     assert are_valid_codes(codes)
+
+
+def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
+    def maybe_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+        unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+
+        def is_free(code: PyCode) -> bool:
+            sorted_ids = map(lambda c: c.ident, sorted_codes)
+            return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
+
+        free_codes = filter(is_free, unsorted_codes)
+
+        try:
+            return Just(head(free_codes))
+        except StopIteration:
+            return Nothing()
+
+    def maybe_loosely_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+        unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+
+        def is_loosely_free(code: PyCode) -> bool:
+            sorted_ids = map(lambda c: c.ident, sorted_codes)
+            return all(map(lambda i: i in sorted_ids, code.strict_deps()))
+
+        free_codes = filter(is_loosely_free, unsorted_codes)
+        less_deps_first = sort_on(lambda c: length(c.weak_deps()), free_codes)
+
+        try:
+            return Just(head(less_deps_first))
+        except StopIteration:
+            return Nothing()
+
+    def _order(acc: Iterable[PyCode], unordered: Iterable[PyCode]) -> Iterable[PyCode]:
+        if unordered == []:
+            return acc
+        else:
+            if mb_code := maybe_free_code(acc):
+                return _order(concat([acc, [mb_code.unwrap()]]), unordered)
+            elif mb_code := maybe_loosely_free_code(acc):
+                return _order(concat([acc, [mb_code.unwrap()]]), unordered)
+            else:
+                # ! temp
+                raise RuntimeError(f"Should be unreachable. acc: {acc}, unordered: {unordered}")
+                raise RuntimeError("Should be unreachable")
+
+    return _order([], codes)
+
+
+def _test_raw_ordered_codes():
+    # Predefined (default) codes
+    default_idents = [
+        PyIdent(module=["os"], mb_name=Just("os")),
+        PyIdent(module=["os"], mb_name=Just("path")),
+        PyIdent(module=["os"], mb_name=Just("join")),
+    ]
+    default_codes = [
+        PyCode(
+            ident=default_idents[0],
+            code=lambda _: "",  # No actual implementation
+            deps=Map(),
+        ),
+        PyCode(
+            ident=default_idents[1],
+            code=lambda _: "",  # No actual implementation
+            deps=Map(),
+        ),
+        PyCode(
+            ident=default_idents[2],
+            code=lambda _: "",  # No actual implementation
+            deps=Map(),
+        ),
+    ]
+
+    # Custom codes
+    custom_idents = [
+        PyIdent(module=["my_module"], mb_name=Just("my_function")),
+        PyIdent(module=["my_module"], mb_name=Just("MyClass")),
+    ]
+    custom_codes = [
+        PyCode(
+            ident=custom_idents[0],
+            code=lambda _: "print('Hello World')",
+            deps=Map(
+                [
+                    ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
+                    ("path", PyDependecy(ident=default_idents[1], is_strict=True)),
+                ]
+            ),
+        ),
+        PyCode(
+            ident=custom_idents[1],
+            code=lambda _: "class MyClass: pass",
+            deps=Map(
+                [("join", PyDependecy(ident=default_idents[2], is_strict=True))],
+            ),
+        ),
+    ]
+
+    # Combine all codes
+    codes = default_codes + custom_codes
+
+    # Order the codes
+    ordered_codes = raw_ordered_codes(codes)
+
+    # Check the order
+    assert ordered_codes == custom_codes + default_codes

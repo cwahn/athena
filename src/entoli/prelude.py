@@ -3,6 +3,7 @@ import functools
 
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
+from entoli.base.typeclass import Ord
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")
@@ -206,10 +207,6 @@ def transpose(xss: Iterable[Iterable[_A]]) -> Iterable[Iterable[_A]]:
 # Additional functions
 
 
-# def unique(seq: Iterable[_A]) -> Iterable[_A]:
-#     return Seq(lambda: (x for x in set(seq)))
-
-
 def unique(seq: Iterable[_A]) -> Iterable[_A]:
     def _unique(acc: Iterable[_A], x: _A) -> Iterable[_A]:
         if x not in acc:
@@ -219,12 +216,16 @@ def unique(seq: Iterable[_A]) -> Iterable[_A]:
     return foldl(_unique, (), seq)
 
 
-def sort(seq: Iterable[_A]) -> Iterable[_A]:
-    return Seq(lambda: sorted(seq))  # type: ignore
+_Ord_A = TypeVar("_Ord_A", bound=Ord)
+_Ord_B = TypeVar("_Ord_B", bound=Ord)
 
 
-def sort_on(f: Callable[[_A], _B], seq: Iterable[_A]) -> Iterable[_A]:
-    return Seq(lambda: sorted(seq, key=f))  # type: ignore
+def sort(seq: Iterable[_Ord_A]) -> Iterable[_Ord_A]:
+    return Seq.from_list(sorted(seq))
+
+
+def sort_on(f: Callable[[_A], _Ord_B], seq: Iterable[_A]) -> Iterable[_A]:
+    return Seq.from_list(sorted(seq, key=f))
 
 
 def is_prefix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:

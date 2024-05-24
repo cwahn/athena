@@ -1,5 +1,6 @@
 from collections.abc import Sequence
-from typing import Callable, Generic, Iterator, Type, TypeVar
+from re import L
+from typing import Callable, Generic, Iterable, Iterator, List, Type, TypeVar
 
 _A = TypeVar("_A")
 
@@ -27,5 +28,16 @@ class Seq(Generic[_A], Sequence):
         else:
             raise TypeError(f"Cannot compare Seq with {type(other)}")
 
-    def eval(self) -> list[_A]:
-        return list(self)
+    def eval(self) -> Iterable[_A]:
+        if self._cached_list is None:
+            self._cached_list = list(self.f())
+        return self._cached_list
+
+    @staticmethod
+    def from_list(xs: List[_A]) -> "Seq[_A]":
+        def generator() -> Iterator[_A]:
+            return iter(xs)
+
+        seq = Seq(generator)
+        seq._cached_list = xs
+        return seq

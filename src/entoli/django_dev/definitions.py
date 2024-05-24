@@ -17,7 +17,6 @@ from entoli.py_code.py_code import IdEnv
 @dataclass
 class DjangoField(Protocol):
     def to_py_snippet(self, id_env: IdEnv, field_name) -> str: ...
-    # def deps(self) -> Iterable[PyDependecy]: ...
     def deps(self) -> Map[str, PyDependecy]: ...
 
 
@@ -376,4 +375,7 @@ class DjangoProject:
     def write(self, dir_path: str):
         codes = self.to_py_codes()
 
-        return compile(codes, dir_path)
+        return write_codes(codes, dir_path)
+
+# todo Make refer function
+# refer : PyIdent -> str
