@@ -325,6 +325,3 @@ class DjangoProject:
         codes = self.to_py_codes()
 
         return write_codes(dir_path, codes)
-
-
-# todo Make refer function

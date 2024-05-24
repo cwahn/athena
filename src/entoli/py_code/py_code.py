@@ -1,4 +1,5 @@
 import ast
+from calendar import c
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Dict
@@ -28,7 +29,7 @@ from entoli.prelude import (
     tail,
     unique,
 )
-from entoli.system import read_file, write_file
+from entoli.system import create_dir_if_missing, file_exists, read_file, write_file
 
 
 @dataclass
@@ -149,20 +150,22 @@ class PyIdent:
                         if last_module_name not in id_env.inner:  # No conflict
                             # todo Actually in case of item with the same name with the module, it could be not a conflict.
                             return Just(
-                                f"from {init(self.module)} import {last_module_name}"
+                                f"from {'.'.join(init(self.module))} import {last_module_name}"
                             )
                         else:  # Conflict
                             return Just(
-                                f"from {init(self.module)} import {last_module_name} as {last_module_name}_"
+                                f"from {'.'.join(init(self.module))} import {last_module_name} as {last_module_name}_"
                             )
                 else:  # Self is a name in a module
                     fully_qualified = self.full_qual_name_parts()
                     last_name = last(fully_qualified)
                     if last_name not in id_env.inner:
-                        return Just(f"from {init(fully_qualified)} import {last_name}")
+                        return Just(
+                            f"from {'.'.join(init(fully_qualified))} import {last_name}"
+                        )
                     else:
                         return Just(
-                            f"from {init(fully_qualified)} import {last_name} as {last_name}_"
+                            f"from {'.'.join(init(fully_qualified))} import {last_name} as {last_name}_"
                         )
 
 
@@ -335,8 +338,19 @@ class IdEnv:
         return self.inner[name].full_qual_name()
 
     @staticmethod
-    def from_file(src: str) -> "IdEnv":
-        tree = ast.parse(src)
+    def from_source(src: str) -> "IdEnv":
+        if src == "":
+            return IdEnv(Map())
+
+        # ! temp
+        assert isinstance(src, str)
+        print(f"src: {src}")
+
+        # tree = ast.parse(src)
+        try:
+            tree = ast.parse(src)
+        except SyntaxError as e:
+            raise ValueError(f"Syntax error in the source code: {e}, src: {src}")
         env_map = Map([])
 
         class Visitor(ast.NodeVisitor):
@@ -412,7 +426,7 @@ class MyClass:
 my_var = 10
 other_var: int = 20
 """
-        id_env = IdEnv.from_file(source_code)
+        id_env = IdEnv.from_source(source_code)
 
         assert id_env("os") == "os.os"
         assert id_env("namedtuple") == "collections.namedtuple"
@@ -450,7 +464,8 @@ class PyCode:
     def code_with_refer(
         self, imported_content: str
     ) -> str:  # Assume all the dependencies are already imported
-        id_env = IdEnv.from_file(imported_content)
+        assert isinstance(imported_content, str)
+        id_env = IdEnv.from_source(imported_content)
 
         def refer(dep_key: str) -> str:
             dep_ident = self.deps[dep_key].ident
@@ -474,6 +489,7 @@ def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
     # Insert the new import line at the end of the imports
     for line in import_lines:
         lines.insert(import_end, line)
+
     new_content = "\n".join(lines)
     return new_content
 
@@ -764,12 +780,15 @@ def mb_ordered_codes(codes: Iterable[PyCode]) -> Maybe[Iterable[PyCode]]:
 
 
 def amended_content(content: str, code: PyCode) -> str:
-    id_env = IdEnv.from_file(content)
+    # ! temp
+    assert isinstance(content, str)
+    id_env = IdEnv.from_source(content)
 
     dep_idents = map(lambda dep: dep.ident, code.deps.values())
     import_lines = filter_map(lambda ident: ident.mb_import_line(id_env), dep_idents)
 
     imported_content = append_import_lines(content, import_lines)
+    assert isinstance(imported_content, str)
 
     return code.code_with_refer(imported_content)
 
@@ -777,8 +796,25 @@ def amended_content(content: str, code: PyCode) -> str:
 def write_code(dir_path: Path, code: PyCode) -> Io[None]:
     file_path = dir_path / code.ident.rel_module_path()
 
-    return read_file(file_path).and_then(
-        lambda content: write_file(file_path, amended_content(content, code))
+    # return read_file(file_path).and_then(
+    #     lambda content: write_file(file_path, amended_content(content, code))
+    # )
+    return (
+        file_exists(file_path)
+        .and_then(
+            lambda exists: if_else(
+                exists,
+                Io.pure(None),
+                create_dir_if_missing(True, file_path.parent).then(
+                    write_file(file_path, "")
+                ),
+            )
+        )
+        .then(
+            read_file(file_path).and_then(
+                lambda content: write_file(file_path, amended_content(content, code))
+            )
+        )
     )
 
 
