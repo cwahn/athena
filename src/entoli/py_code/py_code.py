@@ -1,4 +1,5 @@
 import ast
+from curses import raw
 from dataclasses import dataclass
 import importlib
 from typing import Callable, Iterable, Dict
@@ -7,8 +8,9 @@ from entoli.map import Map
 from entoli.prelude import (
     append,
     elem,
+    for_each,
     map,
-    filter,
+    filter_,
     concat,
     filter_map,
     find,
@@ -654,59 +656,117 @@ def _test_are_valid_codes():
     assert not are_valid_codes(codes)
 
 
-def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
-    def mb_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-        # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
-        sorted_codes = filter(lambda c: c in sorted_codes, codes)
+# def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
+#     def mb_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+#         # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+#         sorted_codes = filter_(lambda c: c in sorted_codes, codes)
 
-        def is_free(code: PyCode) -> bool:
-            sorted_ids = map(lambda c: c.ident, sorted_codes)
-            return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
+#         def is_free(code: PyCode) -> bool:
+#             sorted_ids = map(lambda c: c.ident, sorted_codes)
+#             return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
 
-        free_codes = filter(is_free, unsorted_codes)
+#         free_codes = filter_(is_free, unsorted_codes)
 
-        try:
-            return Just(head(free_codes))
-        except StopIteration:
-            return Nothing()
+#         try:
+#             return Just(head(free_codes))
+#         except StopIteration:
+#             return Nothing()
 
-    def mb_loosely_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-        # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
-        sorted_codes = filter(lambda c: c in sorted_codes, codes)
+#     def mb_loosely_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+#         # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+#         sorted_codes = filter_(lambda c: c in sorted_codes, codes)
 
-        def is_loosely_free(code: PyCode) -> bool:
-            sorted_ids = map(lambda c: c.ident, sorted_codes)
-            return all(map(lambda i: i in sorted_ids, code.strict_deps()))
+#         def is_loosely_free(code: PyCode) -> bool:
+#             sorted_ids = map(lambda c: c.ident, sorted_codes)
+#             return all(map(lambda i: i in sorted_ids, code.strict_deps()))
 
-        free_codes = filter(is_loosely_free, unsorted_codes)
-        less_deps_first = sort_on(lambda c: length(c.weak_deps()), free_codes)
+#         free_codes = filter_(is_loosely_free, unsorted_codes)
+#         less_deps_first = sort_on(lambda c: length(c.weak_deps()), free_codes)
 
-        try:
-            return Just(head(less_deps_first))
-        except StopIteration:
-            return Nothing()
+#         try:
+#             return Just(head(less_deps_first))
+#         except StopIteration:
+#             return Nothing()
 
-    def _order(acc: Iterable[PyCode], unordered: Iterable[PyCode]) -> Iterable[PyCode]:
-        if not unordered:  # Check if unordered is empty
-            return acc
+#     def _order(acc: Iterable[PyCode], unordered: Iterable[PyCode]) -> Iterable[PyCode]:
+#         if not unordered:  # Check if unordered is empty
+#             return acc
+#         else:
+#             match mb_free_code(unordered):
+#                 case Just(free_code):
+#                     return _order(
+#                         append(list(acc), free_code),
+#                         filter_(lambda c: c != free_code, unordered),
+#                     )
+#                 case Nothing():
+#                     match mb_loosely_free_code(unordered):
+#                         case Just(loosely_free_code):
+#                             return _order(
+#                                 append(list(acc), loosely_free_code),
+#                                 filter_(lambda c: c != loosely_free_code, unordered),
+#                             )
+#                         case Nothing():
+#                             raise RuntimeError("Should be unreachable")
+
+#     return _order([], codes)
+
+
+def mb_free_code(
+    unsorted_codes: Iterable[PyCode], sorted_codes: Iterable[PyCode]
+) -> Maybe[PyCode]:
+    def is_free(code: PyCode) -> bool:
+        sorted_ids = list(map(lambda c: c.ident, sorted_codes))
+        return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
+
+    free_codes = filter_(is_free, unsorted_codes)
+
+    try:
+        return Just(head(free_codes))
+    except StopIteration:
+        return Nothing()
+
+
+def mb_loosely_free_code(
+    unsorted_codes: Iterable[PyCode], sorted_codes: Iterable[PyCode]
+) -> Maybe[PyCode]:
+    def is_loosely_free(code: PyCode) -> bool:
+        sorted_ids = list(map(lambda c: c.ident, sorted_codes))
+        return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
+
+    free_codes = filter_(is_loosely_free, unsorted_codes)
+    less_deps_first = sort_on(lambda c: length(c.deps), free_codes)
+
+    try:
+        return Just(head(less_deps_first))
+    except StopIteration:
+        return Nothing()
+
+
+def _order(acc: Iterable[PyCode], unordered: Iterable[PyCode]) -> Iterable[PyCode]:
+    if not unordered:  # Check if unordered is empty
+        return acc
+    else:
+        free_code_result = mb_free_code(unordered, acc)
+        if isinstance(free_code_result, Just):
+            free_code = free_code_result.value
+            return _order(
+                append(acc, free_code),
+                filter_(lambda c: c != free_code, unordered),
+            )
         else:
-            match mb_free_code(unordered):
-                case Just(free_code):
-                    return _order(
-                        append(list(acc), free_code),
-                        filter(lambda c: c != free_code, unordered),
-                    )
-                case Nothing():
-                    match mb_loosely_free_code(unordered):
-                        case Just(loosely_free_code):
-                            return _order(
-                                append(list(acc), loosely_free_code),
-                                filter(lambda c: c != loosely_free_code, unordered),
-                            )
-                        case Nothing():
-                            raise RuntimeError("Should be unreachable")
+            loosely_free_code_result = mb_loosely_free_code(unordered, acc)
+            if isinstance(loosely_free_code_result, Just):
+                loosely_free_code = loosely_free_code_result.value
+                return _order(
+                    append(acc, loosely_free_code),
+                    filter_(lambda c: c != loosely_free_code, unordered),
+                )
+            else:
+                raise RuntimeError("Should be unreachable")
 
-    return _order([], codes)
+
+def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
+    return _order([], list(codes))
 
 
 def _test_raw_ordered_codes():
@@ -759,10 +819,24 @@ def _test_raw_ordered_codes():
     ]
 
     # Combine all codes
-    codes = default_codes + custom_codes
+    codes = custom_codes + default_codes
 
-    # Order the codes
-    ordered_codes = raw_ordered_codes(codes)
+    assert raw_ordered_codes(codes) == [
+        default_codes[0],
+        default_codes[1],
+        custom_codes[0],
+        default_codes[2],
+        custom_codes[1],
+    ]
 
-    # Check the order
-    assert ordered_codes == custom_codes + default_codes
+    custom_codes[0].deps["join"] = PyDependecy(ident=default_idents[2], is_strict=True)
+
+    assert raw_ordered_codes(codes) == [
+        default_codes[0],
+        default_codes[1],
+        default_codes[2],
+        custom_codes[0],
+        custom_codes[1],
+    ]
+
+    # assert False

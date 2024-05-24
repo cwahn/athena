@@ -20,7 +20,7 @@ from entoli.prelude import (
     length,
     sort_on,
     map,
-    filter,
+    filter_,
     head,
     take,
 )
@@ -179,14 +179,14 @@ def validate(codes: Iterable[PyCode]) -> bool:
 
 def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
     def maybe_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-        unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+        unsorted_codes = filter_(lambda c: c not in sorted_codes, codes)
 
         def is_free(code: PyCode) -> bool:
             sorted_ids = map(lambda c: c.ident, sorted_codes)
             # return all(map(lambda i: i in sorted_ids, deps))
             return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
 
-        free_codes = filter(is_free, unsorted_codes)
+        free_codes = filter_(is_free, unsorted_codes)
 
         try:
             # return Just(next(free_codes))
@@ -195,13 +195,13 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
             return Nothing()
 
     def maybe_loosely_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-        unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+        unsorted_codes = filter_(lambda c: c not in sorted_codes, codes)
 
         def is_loosely_free(code: PyCode) -> bool:
             sorted_ids = map(lambda c: c.ident, sorted_codes)
             return all(map(lambda i: i in sorted_ids, code.strict_deps()))
 
-        free_codes = filter(is_loosely_free, unsorted_codes)
+        free_codes = filter_(is_loosely_free, unsorted_codes)
         less_deps_first = sort_on(lambda c: length(c.weak_deps()), free_codes)
 
         try:

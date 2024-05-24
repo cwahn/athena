@@ -17,8 +17,9 @@ def map(f: Callable[[_A], _B], xs: Iterable[_A]) -> Iterable[_B]:
     return Seq(lambda: (f(x) for x in xs))
 
 
-def filter(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
-    return Seq(lambda: (x for x in xs if f(x)))
+def filter_(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
+    # return Seq(lambda: (x for x in xs if f(x)))
+    return Seq(lambda: filter(f, xs))
 
 
 def filter_map(f: Callable[[_A], Maybe[_B]], xs: Iterable[_A]) -> Iterable[_B]:

@@ -61,8 +61,18 @@ class _TestSeq:
         else:
             assert False
 
+        if not seq:
+            assert False
+        else:
+            assert True
+
         empty_seq = Seq.from_list([])
         if empty_seq:
             assert False
         else:
             assert True
+
+        if not empty_seq:
+            assert True
+        else:
+            assert False
