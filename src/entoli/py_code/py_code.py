@@ -5,6 +5,7 @@ from typing import Callable, Iterable, Dict
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
 from entoli.prelude import (
+    append,
     elem,
     map,
     filter,
@@ -654,8 +655,9 @@ def _test_are_valid_codes():
 
 
 def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
-    def mb_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-        unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+    def mb_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+        # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+        sorted_codes = filter(lambda c: c in sorted_codes, codes)
 
         def is_free(code: PyCode) -> bool:
             sorted_ids = map(lambda c: c.ident, sorted_codes)
@@ -668,8 +670,9 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
         except StopIteration:
             return Nothing()
 
-    def mb_loosely_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-        unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+    def mb_loosely_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+        # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
+        sorted_codes = filter(lambda c: c in sorted_codes, codes)
 
         def is_loosely_free(code: PyCode) -> bool:
             sorted_ids = map(lambda c: c.ident, sorted_codes)
@@ -684,19 +687,24 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
             return Nothing()
 
     def _order(acc: Iterable[PyCode], unordered: Iterable[PyCode]) -> Iterable[PyCode]:
-        if unordered == []:
+        if not unordered:  # Check if unordered is empty
             return acc
         else:
-            if mb_code := mb_free_code(unordered):
-                return _order(concat([acc, [mb_code.unwrap()]]), unordered)
-            elif mb_code := mb_loosely_free_code(unordered):
-                return _order(concat([acc, [mb_code.unwrap()]]), unordered)
-            else:
-                # ! temp
-                raise RuntimeError(
-                    f"Should be unreachable. acc: {pstr(acc)}, unordered: {pstr(unordered)}"
-                )
-                raise RuntimeError("Should be unreachable")
+            match mb_free_code(unordered):
+                case Just(free_code):
+                    return _order(
+                        append(list(acc), free_code),
+                        filter(lambda c: c != free_code, unordered),
+                    )
+                case Nothing():
+                    match mb_loosely_free_code(unordered):
+                        case Just(loosely_free_code):
+                            return _order(
+                                append(list(acc), loosely_free_code),
+                                filter(lambda c: c != loosely_free_code, unordered),
+                            )
+                        case Nothing():
+                            raise RuntimeError("Should be unreachable")
 
     return _order([], codes)
 

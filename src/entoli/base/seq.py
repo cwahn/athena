@@ -51,3 +51,18 @@ class Seq(Generic[_A], Sequence):
 
         seq = Seq(generator, xs)
         return seq
+
+
+class _TestSeq:
+    def _test_as_bool(self):
+        seq = Seq.from_list([1, 2, 3])
+        if seq:
+            assert True
+        else:
+            assert False
+
+        empty_seq = Seq.from_list([])
+        if empty_seq:
+            assert False
+        else:
+            assert True

@@ -313,6 +313,20 @@ def snd(pair: Tuple[_A, _B]) -> _B:
 # Others
 
 
+def append(xs: Iterable[_A], x: _A) -> Iterable[_A]:
+    def _append():
+        yield from xs
+        yield x
+
+    return Seq(_append)
+
+
+def _test_append():
+    assert append([], 1) == [1]
+    assert append([1], 2) == [1, 2]
+    assert append([1, 2], 3) == [1, 2, 3]
+
+
 def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
     for x in xs:
         f(x)
