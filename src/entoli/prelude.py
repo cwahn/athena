@@ -1,7 +1,8 @@
 import json
-from typing import Any, Tuple, TypeVar, Iterable, Callable, Optional, Iterator
+from typing import Any, List, Tuple, TypeVar, Iterable, Callable, Optional, Iterator
 import functools
 
+from dataclasses import dataclass
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
 from entoli.base.typeclass import Ord
@@ -103,6 +104,27 @@ def drop(n: int, xs: Iterable[_A]) -> Iterable[_A]:
 
 def elem(x: _A, xs: Iterable[_A]) -> bool:
     return x in xs
+
+
+def _test_elem():
+    assert not elem(1, [])
+    assert elem(1, [1, 2, 3])
+    assert not elem(4, [1, 2, 3])
+
+    @dataclass
+    class PyIdent:
+        module: List[str]
+        qual_name: List[str]
+
+    ident_0 = PyIdent(
+        module=["auto_generated", "some_package", "some_module"], qual_name=["greet_0"]
+    )
+    ident_1 = PyIdent(
+        module=["auto_generated", "some_package", "some_module"], qual_name=["greet_1"]
+    )
+
+    assert elem(ident_0, [ident_0, ident_1])
+    assert not elem(ident_0, [ident_1])
 
 
 def not_elem(x: _A, xs: Iterable[_A]) -> bool:

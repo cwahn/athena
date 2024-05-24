@@ -493,6 +493,8 @@ def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
                 return Nothing()
             case Just(visited_idents):
                 if id in visited_idents:
+                    # ! temp
+                    print(f"Already visited: id: {id}, visited: {visited_idents}")
                     return Nothing()
                 else:
                     return Just(concat([visited_idents, [id]]))
@@ -506,19 +508,27 @@ def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
 
 
 def _all_deps_present(codes: Iterable[PyCode]) -> bool:
-    all_deps = concat(map(lambda c: c.deps.values(), codes))
-
-    print(f"codes: {pstr(codes)}")
-    print(f"present_idents: {pstr(list(all_deps))}")
-    assert PyDependecy(PyIdent(module=["os"], mb_name=Just("os"))) in all_deps
-
+    present_idents = map(lambda c: c.ident, codes)
     code_depss = map(lambda c: c.deps.values(), codes)
-    all_deps = concat(code_depss)
+    all_deps = unique(concat(code_depss))
 
     def _is_present(acc: bool, dep: PyDependecy) -> bool:
-        res = elem(dep, all_deps)
-        if not res:
-            raise ValueError(f"Dependency {dep} is not present in {pstr((all_deps))}")
+        res = elem(dep.ident, present_idents)
+        # if not res:
+        #     print(
+        #         f"Dependency {dep.ident} is not present in {pstr(list(present_idents))}"
+        #     )
+        # if not dep.ident == head(present_idents):
+        #     raise ValueError(
+        #         f"Should be the same, dep: {dep}, present: {head(present_idents)}"
+        #     )
+        # elif not dep.ident in present_idents:
+        #     raise ValueError("In does not exist in present_idents")
+
+        # raise ValueError(
+        #     f"Dependency {dep.ident} is not present in {pstr(present_idents)}"
+        # )
+
         return acc and res
 
     return foldl(_is_present, True, all_deps)
@@ -598,7 +608,13 @@ def _test_are_valid_codes():
             #     "join": PyDependecy(ident=default_idents[2], is_strict=True),
             # },
             deps=Map(
-                [("join", PyDependecy(ident=default_idents[2], is_strict=True))],
+                [
+                    ("join", PyDependecy(ident=default_idents[2], is_strict=True)),
+                    (
+                        "my_function",
+                        PyDependecy(ident=custom_idents[0], is_strict=True),
+                    ),
+                ],
             ),
         ),
     ]
@@ -612,18 +628,29 @@ def _test_are_valid_codes():
     assert _no_strict_circular_deps(codes)
     assert are_valid_codes(codes)
 
+    # Add missing dependency to custom codes
+    missing_ident = PyIdent(module=["missing"], mb_name=Just("missing"))
+    custom_codes[0].deps["missing"] = PyDependecy(ident=missing_ident, is_strict=True)
+    assert not _all_deps_present(codes)
+    assert _all_idents_unique(codes)
+    assert _no_strict_circular_deps(codes)
+    assert not are_valid_codes(codes)
+
+    # Remove the missing dependency
+    del custom_codes[0].deps["missing"]
+    # Add duplicated ident
+    duplicated_codes = codes + custom_codes
+    assert _all_deps_present(duplicated_codes)
+    assert not _all_idents_unique(duplicated_codes)
+    assert _no_strict_circular_deps(duplicated_codes)
+    assert not are_valid_codes(duplicated_codes)
+
     # Introduce a circular dependency to check for invalid codes
     custom_codes[0].deps["join"] = PyDependecy(ident=custom_idents[1], is_strict=True)
+    assert _all_deps_present(codes)
+    assert _all_idents_unique(codes)
+    assert not _no_strict_circular_deps(codes)
     assert not are_valid_codes(codes)
-
-    # Fix the previous issue but introduce another circular dependency
-    custom_codes[0].deps["join"] = PyDependecy(ident=default_idents[2], is_strict=True)
-    custom_codes[1].deps["os"] = PyDependecy(ident=custom_idents[0], is_strict=True)
-    assert not are_valid_codes(codes)
-
-    # Correct the dependencies to be valid again
-    custom_codes[1].deps["os"] = PyDependecy(ident=default_idents[0], is_strict=True)
-    assert are_valid_codes(codes)
 
 
 def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
@@ -675,7 +702,6 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
 
 
 def _test_raw_ordered_codes():
-    # Predefined (default) codes
     default_idents = [
         PyIdent(module=["os"], mb_name=Just("os")),
         PyIdent(module=["os"], mb_name=Just("path")),
