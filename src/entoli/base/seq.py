@@ -13,6 +13,13 @@ class Seq(Generic[_A], Sequence):
         self.f = f
         self._cached_list = cached_list
 
+    @staticmethod
+    def from_list(xs: List[_A]) -> "Seq[_A]":
+        def generator() -> Iterator[_A]:
+            return iter(xs)
+
+        return Seq(generator, xs)
+
     def __iter__(self):
         if self._cached_list is not None:
             return iter(self._cached_list)
@@ -44,13 +51,24 @@ class Seq(Generic[_A], Sequence):
         else:
             raise TypeError(f"Cannot compare Seq with {type(other)}")
 
-    @staticmethod
-    def from_list(xs: List[_A]) -> "Seq[_A]":
-        def generator() -> Iterator[_A]:
-            return iter(xs)
+    def __add__(self, other: Iterable[_A]) -> "Seq[_A]":
+        def concat_generator() -> Iterator[_A]:
+            yield from self
+            yield from other
 
-        seq = Seq(generator, xs)
-        return seq
+        return Seq(concat_generator)
+
+    # ! Mutating operation is not allowed
+    # def __iadd__(self, other: "Seq[_A]") -> "Seq[_A]":
+    #     def concat_generator() -> Iterator[_A]:
+    #         yield from self
+    #         yield from other
+
+    #     # Create a new Seq with combined generator and reassign it to self
+    #     new_seq = Seq(concat_generator)
+    #     self.f = new_seq.f
+    #     self._cached_list = None  # Invalidate the cache
+    #     return self
 
 
 class _TestSeq:
@@ -76,3 +94,12 @@ class _TestSeq:
             assert True
         else:
             assert False
+
+    def _test___add__(self):
+        seq0 = Seq.from_list([])
+        seq1 = Seq.from_list([1, 2, 3])
+        seq2 = Seq.from_list([4, 5, 6])
+
+        assert seq0 + seq1 == seq1
+        assert seq1 + seq0 == seq1
+        assert seq1 + seq2 == Seq.from_list([1, 2, 3, 4, 5, 6])

@@ -516,23 +516,7 @@ def _all_deps_present(codes: Iterable[PyCode]) -> bool:
     all_deps = unique(concat(code_depss))
 
     def _is_present(acc: bool, dep: PyDependecy) -> bool:
-        res = elem(dep.ident, present_idents)
-        # if not res:
-        #     print(
-        #         f"Dependency {dep.ident} is not present in {pstr(list(present_idents))}"
-        #     )
-        # if not dep.ident == head(present_idents):
-        #     raise ValueError(
-        #         f"Should be the same, dep: {dep}, present: {head(present_idents)}"
-        #     )
-        # elif not dep.ident in present_idents:
-        #     raise ValueError("In does not exist in present_idents")
-
-        # raise ValueError(
-        #     f"Dependency {dep.ident} is not present in {pstr(present_idents)}"
-        # )
-
-        return acc and res
+        return acc and elem(dep.ident, present_idents)
 
     return foldl(_is_present, True, all_deps)
 
@@ -656,62 +640,7 @@ def _test_are_valid_codes():
     assert not are_valid_codes(codes)
 
 
-# def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
-#     def mb_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-#         # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
-#         sorted_codes = filter_(lambda c: c in sorted_codes, codes)
-
-#         def is_free(code: PyCode) -> bool:
-#             sorted_ids = map(lambda c: c.ident, sorted_codes)
-#             return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
-
-#         free_codes = filter_(is_free, unsorted_codes)
-
-#         try:
-#             return Just(head(free_codes))
-#         except StopIteration:
-#             return Nothing()
-
-#     def mb_loosely_free_code(unsorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
-#         # unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
-#         sorted_codes = filter_(lambda c: c in sorted_codes, codes)
-
-#         def is_loosely_free(code: PyCode) -> bool:
-#             sorted_ids = map(lambda c: c.ident, sorted_codes)
-#             return all(map(lambda i: i in sorted_ids, code.strict_deps()))
-
-#         free_codes = filter_(is_loosely_free, unsorted_codes)
-#         less_deps_first = sort_on(lambda c: length(c.weak_deps()), free_codes)
-
-#         try:
-#             return Just(head(less_deps_first))
-#         except StopIteration:
-#             return Nothing()
-
-#     def _order(acc: Iterable[PyCode], unordered: Iterable[PyCode]) -> Iterable[PyCode]:
-#         if not unordered:  # Check if unordered is empty
-#             return acc
-#         else:
-#             match mb_free_code(unordered):
-#                 case Just(free_code):
-#                     return _order(
-#                         append(list(acc), free_code),
-#                         filter_(lambda c: c != free_code, unordered),
-#                     )
-#                 case Nothing():
-#                     match mb_loosely_free_code(unordered):
-#                         case Just(loosely_free_code):
-#                             return _order(
-#                                 append(list(acc), loosely_free_code),
-#                                 filter_(lambda c: c != loosely_free_code, unordered),
-#                             )
-#                         case Nothing():
-#                             raise RuntimeError("Should be unreachable")
-
-#     return _order([], codes)
-
-
-def mb_free_code(
+def _mb_free_code(
     unsorted_codes: Iterable[PyCode], sorted_codes: Iterable[PyCode]
 ) -> Maybe[PyCode]:
     def is_free(code: PyCode) -> bool:
@@ -726,7 +655,7 @@ def mb_free_code(
         return Nothing()
 
 
-def mb_loosely_free_code(
+def _mb_loosely_free_code(
     unsorted_codes: Iterable[PyCode], sorted_codes: Iterable[PyCode]
 ) -> Maybe[PyCode]:
     def is_loosely_free(code: PyCode) -> bool:
@@ -742,31 +671,32 @@ def mb_loosely_free_code(
         return Nothing()
 
 
-def _order(acc: Iterable[PyCode], unordered: Iterable[PyCode]) -> Iterable[PyCode]:
-    if not unordered:  # Check if unordered is empty
-        return acc
-    else:
-        free_code_result = mb_free_code(unordered, acc)
-        if isinstance(free_code_result, Just):
-            free_code = free_code_result.value
-            return _order(
-                append(acc, free_code),
-                filter_(lambda c: c != free_code, unordered),
-            )
+def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
+    def _raw_ordered_codes(
+        acc: Iterable[PyCode], unordered: Iterable[PyCode]
+    ) -> Iterable[PyCode]:
+        if not unordered:  # Check if unordered is empty
+            return acc
         else:
-            loosely_free_code_result = mb_loosely_free_code(unordered, acc)
-            if isinstance(loosely_free_code_result, Just):
-                loosely_free_code = loosely_free_code_result.value
-                return _order(
-                    append(acc, loosely_free_code),
-                    filter_(lambda c: c != loosely_free_code, unordered),
+            free_code_result = _mb_free_code(unordered, acc)
+            if isinstance(free_code_result, Just):
+                free_code = free_code_result.value
+                return _raw_ordered_codes(
+                    append(acc, free_code),
+                    filter_(lambda c: c != free_code, unordered),
                 )
             else:
-                raise RuntimeError("Should be unreachable")
+                loosely_free_code_result = _mb_loosely_free_code(unordered, acc)
+                if isinstance(loosely_free_code_result, Just):
+                    loosely_free_code = loosely_free_code_result.value
+                    return _raw_ordered_codes(
+                        append(acc, loosely_free_code),
+                        filter_(lambda c: c != loosely_free_code, unordered),
+                    )
+                else:
+                    raise RuntimeError("Should be unreachable")
 
-
-def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
-    return _order([], list(codes))
+    return _raw_ordered_codes([], list(codes))
 
 
 def _test_raw_ordered_codes():
