@@ -11,32 +11,29 @@ sys.path.insert(
 
 from entoli.base.maybe import Just, Nothing
 from entoli.map import Map
-from entoli.base.io import Io
+from entoli.base.io import Io, put_strln
 from entoli.prelude import body, foldl
 from entoli.system import append_file
 
 # from entoli.django_dev.py_code import PyCode, PyIdent, write_py_code
-from entoli.py_code.py_code import PyCode, PyIdent, PyDependecy, write_code
+from entoli.py_code.py_code import (
+    PyCode,
+    PyIdent,
+    PyDependecy,
+    write_code,
+    write_codes,
+    _all_deps_present,
+    _all_idents_unique,
+    _no_strict_circular_deps,
+)
 
 
 package_init_file = PyCode(
     ident=PyIdent(module=["some_package", "__init__"], mb_name=Nothing()),
     code=lambda refer, content: content,
-    # strict_deps=[],
-    # weak_deps=[],
     deps=Map(),
 )
 
-# module_init_file = PyCode(
-#     # ident=PyIdent(module=["auto_generated", "some_package", "__init__"], mb_name=[]),
-#     ident=PyIdent(
-#         module=["auto_generated", "some_package", "__init__"], mb_name=Nothing()
-#     ),
-#     # code=[],
-#     code=lambda path: Io.pure(None),
-#     strict_deps=[],
-#     weak_deps=[],
-# )
 module_init_file = PyCode(
     ident=PyIdent(
         module=["some_package", "some_module", "__init__"],
@@ -46,34 +43,6 @@ module_init_file = PyCode(
     deps=Map(),
 )
 
-# def_greet = PyCode(
-#     # ident=PyIdent(
-#     #     module=["auto_generated", "some_package", "some_module"], mb_name=["greet"]
-#     # ),
-#     ident=PyIdent(
-#         module=["some_package", "some_module"],
-#         mb_name=Just("greet"),
-#     ),
-#     code=lambda path: append_file(
-#         path,
-#         "\n".join(
-#             [
-#                 "greet = (",
-#                 "    put_strln('What is your name?')",
-#                 "    .then(get_str)",
-#                 "    .and_then(lambda name: put_strln(f'Hello, {name}!'))",
-#                 ")",
-#             ]
-#         ),
-#     ),
-#     strict_deps=[
-#         # PyIdent(module=["src", "entoli", "base", "io"], mb_name=["put_strln"]),
-#         PyIdent(module=["src", "entoli", "base", "io"], mb_name=Just("put_strln")),
-#         # PyIdent(module=["src", "entoli", "base", "io"], mb_name=["get_str"]),
-#         PyIdent(module=["src", "entoli", "base", "io"], mb_name=Just("get_str")),
-#     ],
-#     weak_deps=[],
-# )
 def_greet = PyCode(
     ident=PyIdent(
         module=["some_package", "some_module", "some_submodule"],
@@ -113,32 +82,6 @@ def_greet = PyCode(
     ),
 )
 
-# run_greet = PyCode(
-#     # ident=PyIdent(module=["auto_generated", "run"], mb_name=["run_greet"]),
-#     ident=PyIdent(
-#         module=["auto_generated", "run"],
-#         mb_name=Just("run_greet"),
-#     ),
-#     # code=["if __name__ == '__main__':", "    greet.action()"],
-#     code=lambda path: append_file(
-#         path,
-#         "\n".join(
-#             [
-#                 "if __name__ == '__main__':",
-#                 "    greet.action()",
-#             ]
-#         ),
-#     ),
-#     strict_deps=[
-#         PyIdent(
-#             module=["some_package", "some_module"],
-#             # mb_name=["greet"],
-#             mb_name=Just("greet"),
-#         )
-#     ],
-#     weak_deps=[],
-# )
-
 run_greet = PyCode(
     ident=PyIdent(
         module=["some_package", "run"],
@@ -157,7 +100,7 @@ run_greet = PyCode(
                 "greet",
                 PyDependecy(
                     ident=PyIdent(
-                        module=["some_package", "some_module"],
+                        module=["some_package", "some_module", "some_submodule"],
                         mb_name=Just("greet"),
                     )
                 ),
@@ -166,14 +109,37 @@ run_greet = PyCode(
     ),
 )
 
-write = foldl(
-    lambda acc, code: acc.then(
-        write_code(Path(__file__).parent.parent / "build", code)
-    ),
-    Io.pure(None),
-    [package_init_file, module_init_file, def_greet, run_greet],
+put_strln_ = PyCode(
+    ident=PyIdent(module=["src", "entoli", "base", "io"], mb_name=Just("put_strln")),
+    code=lambda refer, content: content,
+    deps=Map(),
+)
+
+get_str_ = PyCode(
+    ident=PyIdent(module=["src", "entoli", "base", "io"], mb_name=Just("get_str")),
+    code=lambda refer, content: content,
+    deps=Map(),
+)
+
+
+codes = [
+    package_init_file,
+    module_init_file,
+    def_greet,
+    run_greet,
+    put_strln_,
+    get_str_,
+]
+
+assert _all_idents_unique(codes)
+assert _all_deps_present(codes)
+assert _no_strict_circular_deps(codes)
+
+main = write_codes(
+    Path(__file__).parent.parent / "build",
+    codes,
 )
 
 
 if __name__ == "__main__":
-    write.action()
+    main.action()

@@ -343,8 +343,8 @@ class IdEnv:
             return IdEnv(Map())
 
         # ! temp
-        assert isinstance(src, str)
-        print(f"src: {src}")
+        # assert isinstance(src, str)
+        # print(f"src: {src}")
 
         # tree = ast.parse(src)
         try:
@@ -796,9 +796,6 @@ def amended_content(content: str, code: PyCode) -> str:
 def write_code(dir_path: Path, code: PyCode) -> Io[None]:
     file_path = dir_path / code.ident.rel_module_path()
 
-    # return read_file(file_path).and_then(
-    #     lambda content: write_file(file_path, amended_content(content, code))
-    # )
     return (
         file_exists(file_path)
         .and_then(
@@ -819,8 +816,12 @@ def write_code(dir_path: Path, code: PyCode) -> Io[None]:
 
 
 def write_codes(dir_path: Path, codes: Iterable[PyCode]) -> Io[None]:
-    return foldl(
-        lambda io, code: io.then(write_code(dir_path, code)),
-        Io.pure(None),
-        codes,
-    )
+    match mb_ordered_codes(codes):
+        case Nothing():
+            raise ValueError("Codes are not valid")
+        case Just(ordered_codes):
+            return foldl(
+                lambda io, code: io.then(write_code(dir_path, code)),
+                Io.pure(None),
+                ordered_codes,
+            )
