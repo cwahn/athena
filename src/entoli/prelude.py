@@ -1,4 +1,5 @@
-from typing import Tuple, TypeVar, Iterable, Callable, Optional, Iterator
+import json
+from typing import Any, Tuple, TypeVar, Iterable, Callable, Optional, Iterator
 import functools
 
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -142,6 +143,14 @@ def concat(xss: Iterable[Iterable[_A]]) -> Iterable[_A]:
     return Seq(lambda: (x for xs in xss for x in xs))
 
 
+def _test_concat():
+    assert concat([]) == []
+    assert concat([[], []]) == []
+    assert concat([[1], [2]]) == [1, 2]
+    assert concat([[1, 2], [3, 4]]) == [1, 2, 3, 4]
+    assert concat([[1, 2], [3, 4], [5, 6]]) == [1, 2, 3, 4, 5, 6]
+
+
 # def intersperse(x: _A, xs: Iterable[_A]) -> Iterator[_A]:
 #     it = iter(xs)
 #     try:
@@ -216,8 +225,8 @@ def unique(seq: Iterable[_A]) -> Iterable[_A]:
     return foldl(_unique, (), seq)
 
 
-_Ord_A = TypeVar("_Ord_A", bound=Ord)
-_Ord_B = TypeVar("_Ord_B", bound=Ord)
+_Ord_A = TypeVar("_Ord_A", bound=Ord | int)
+_Ord_B = TypeVar("_Ord_B", bound=Ord | int)
 
 
 def sort(seq: Iterable[_Ord_A]) -> Iterable[_Ord_A]:
@@ -293,3 +302,17 @@ def if_else(cond: bool, t: _A, f: _A) -> _A:
 
 def body(*exps):
     return [exp for exp in exps][-1]
+
+
+def pstr(x: _A) -> str:
+    def _to_dict(obj: _A) -> Any:
+        if isinstance(obj, list):
+            return [_to_dict(i) for i in obj]
+        elif isinstance(obj, dict):
+            return {k: _to_dict(v) for k, v in obj.items()}
+        elif hasattr(obj, "__dict__"):
+            return {k: _to_dict(v) for k, v in obj.__dict__.items()}
+        else:
+            return obj
+
+    return json.dumps(_to_dict(x), indent=2, default=str)

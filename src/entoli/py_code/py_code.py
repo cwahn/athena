@@ -19,6 +19,7 @@ from entoli.prelude import (
     is_suffix_of,
     last,
     length,
+    pstr,
     snd,
     init,
     sort_on,
@@ -494,14 +495,19 @@ def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
 
 def _all_deps_present(codes: Iterable[PyCode]) -> bool:
     present_idents = concat(map(lambda c: c.deps.values(), codes))
-    all_deps = unique(
-        concat(map(lambda c: concat(map(lambda d: [d.ident], c.deps.values())), codes))
-    )
+
+    print(f"codes: {pstr(codes)}")
+    print(f"present_idents: {pstr(present_idents)}")
+
+    code_depss = map(lambda c: c.deps.values(), codes)
+    all_deps = concat(code_depss)
 
     def _is_present(acc: bool, dep: PyDependecy) -> bool:
         res = elem(dep.ident, present_idents)
         if not res:
-            raise ValueError(f"Dependency {dep.ident} is not present.")
+            raise ValueError(
+                f"Dependency {dep.ident} is not present in {pstr((present_idents))}"
+            )
         return acc and res
 
     return foldl(_is_present, True, all_deps)
@@ -610,7 +616,7 @@ def _test_are_valid_codes():
 
 
 def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
-    def maybe_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+    def mb_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
         unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
 
         def is_free(code: PyCode) -> bool:
@@ -624,7 +630,7 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
         except StopIteration:
             return Nothing()
 
-    def maybe_loosely_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
+    def mb_loosely_free_code(sorted_codes: Iterable[PyCode]) -> Maybe[PyCode]:
         unsorted_codes = filter(lambda c: c not in sorted_codes, codes)
 
         def is_loosely_free(code: PyCode) -> bool:
@@ -643,13 +649,15 @@ def raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
         if unordered == []:
             return acc
         else:
-            if mb_code := maybe_free_code(acc):
+            if mb_code := mb_free_code(acc):
                 return _order(concat([acc, [mb_code.unwrap()]]), unordered)
-            elif mb_code := maybe_loosely_free_code(acc):
+            elif mb_code := mb_loosely_free_code(acc):
                 return _order(concat([acc, [mb_code.unwrap()]]), unordered)
             else:
                 # ! temp
-                raise RuntimeError(f"Should be unreachable. acc: {acc}, unordered: {unordered}")
+                raise RuntimeError(
+                    f"Should be unreachable. acc: {pstr(acc)}, unordered: {pstr(unordered)}"
+                )
                 raise RuntimeError("Should be unreachable")
 
     return _order([], codes)
