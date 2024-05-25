@@ -228,20 +228,26 @@ def sort_on(f: Callable[[_A], _Ord_B], seq: Iterable[_A]) -> Iterable[_A]:
 
 
 def is_prefix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
-    match xs:
-        case []:
-            return True
-        case [x, *xs_]:
-            match ys:
-                case []:
-                    return False
-                case [y, *ys_]:
-                    if x == y:
-                        return is_prefix_of(xs_, ys_)
-                    else:
-                        return False
+    xs_list = list(xs)
+    ys_list = list(ys)
+    return xs_list == ys_list[: len(xs_list)]
 
-    raise RuntimeError(f"Unreachable code: {xs}{list(xs)}, {ys}{list(ys)} ")
+
+# def is_prefix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
+#     match xs:
+#         case []:
+#             return True
+#         case [x, *xs_]:
+#             match ys:
+#                 case []:
+#                     return False
+#                 case [y, *ys_]:
+#                     if x == y:
+#                         return is_prefix_of(xs_, ys_)
+#                     else:
+#                         return False
+
+#     raise RuntimeError(f"Unreachable code: {xs}{list(xs)}, {ys}{list(ys)} ")
 
 
 def _test_is_prefix_of():
@@ -255,8 +261,20 @@ def _test_is_prefix_of():
     assert not is_prefix_of([1, 2], [1, 3, 4])
 
 
+# def is_suffix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
+#     return is_prefix_of(reverse(xs), reverse(ys))
+
+
 def is_suffix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
-    return is_prefix_of(reverse(xs), reverse(ys))
+    xs_list = list(xs)
+    ys_list = list(ys)
+    
+    if not xs_list:
+        return True
+    elif len(xs_list) > len(ys_list):
+        return False
+    else:
+        return xs_list == ys_list[-len(xs_list) :]
 
 
 def _test_is_suffix_of():
