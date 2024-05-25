@@ -20,7 +20,7 @@ from entoli.process import (
 from entoli.prelude import unlines, put_strln
 from entoli.base.io import Io
 
-from entoli.django_dev.definitions import (
+from entoli.django_dev.declaration import (
     BooleanField,
     CharField,
     DjangoApp,

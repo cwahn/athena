@@ -347,6 +347,8 @@ class IdEnv:
                     for alias in node.names:
                         qual_name = alias.name
                         env_map[alias.asname or alias.name] = PyIdent(
+                            # ! This name could be either module or item in the module.
+                            # ! There is no way to distinguish them.
                             module=module_parts, mb_name=Just(qual_name)
                         )
 
@@ -379,7 +381,7 @@ class IdEnv:
 
 # Define the test class using pytest
 class _TestIdEnv:
-    def test_from_file(self):
+    def _test_from_source(self):
         source_code = """
 import os
 from collections import namedtuple
@@ -402,6 +404,18 @@ other_var: int = 20
         assert id_env("MyClass") == ".MyClass"
         assert id_env("my_var") == ".my_var"
         assert id_env("other_var") == ".other_var"
+
+    def _test_from_source_(self):
+        source_code = ""
+        ident = PyIdent(
+            module=["auto_project", "auto_app_0", "urls"], mb_name=Nothing()
+        )
+
+        mb_import_line = ident.mb_import_line(IdEnv.from_source(source_code))
+        source_code_ = mb_import_line.unwrap()
+
+        imported_id_env = IdEnv.from_source(source_code_)
+        assert ident.refered_as_in(imported_id_env) == ".urls"
 
 
 # Take depencies keys and return python idendifiers in the code
@@ -512,10 +526,13 @@ other_var: int = 20
     ident_to_import_0 = PyIdent(module=["os"], mb_name=Just("os"))
     ident_to_import_1 = PyIdent(module=["collections"], mb_name=Just("namedtuple"))
     ident_to_import_2 = PyIdent(module=[], mb_name=Just("my_function"))
+    ident_to_import_3 = PyIdent(
+        module=["auto_project", "auto_app_0", "urls"], mb_name=Nothing()
+    )
 
     import_lines = filter_map(
         lambda ident: ident.mb_import_line(id_env),
-        [ident_to_import_0, ident_to_import_1, ident_to_import_2],
+        [ident_to_import_0, ident_to_import_1, ident_to_import_2, ident_to_import_3],
     )
 
     imported_content = _append_import_lines(source_code, import_lines)
@@ -528,6 +545,9 @@ other_var: int = 20
     assert _refer(ident_to_import_0) == "os"
     assert _refer(ident_to_import_1) == "namedtuple"
     assert _refer(ident_to_import_2) == "my_function"
+    print("imported_content: ", imported_content)
+    print("imported_id_env: ", imported_id_env.inner)
+    assert _refer(ident_to_import_3) == ".urls"
 
 
 def _all_idents_unique(codes: Iterable[PyCode]) -> bool:

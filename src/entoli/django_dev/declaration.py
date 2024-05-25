@@ -220,9 +220,6 @@ class DjangoApp:
         )
 
         add_to_project_urls_deps = {
-            # "path": PyDependecy(
-            #     ident=PyIdent(module=["django", "urls"], mb_name=Nothing()),
-            # ),
             "django_url": PyDependecy(
                 ident=PyIdent(module=["django", "urls"], mb_name=Nothing()),
             ),
