@@ -146,7 +146,7 @@ def _test_tail():
     # ! Defining tail of an empty list if self will not raise an error
     # ! However, calling tail of an empty list will raise an error
     try:
-        tail([]) == []
+        next(iter(tail([])))
         assert False
     except StopIteration:
         assert True
@@ -173,7 +173,7 @@ def _test_init():
     # ! However, calling init of an empty list will raise an error
 
     try:
-        should_raise = next(iter(init([])))
+        next(iter(init([])))
         assert False
     except Exception as e:
         assert True
@@ -214,7 +214,8 @@ def _test_length():
 
 
 def reverse(xs: Iterable[_A]) -> Iterable[_A]:
-    return Seq(lambda: iter(reversed(list(xs))))
+    # return Seq(lambda: iter(reversed(list(xs))))
+    return Seq(lambda: reversed(list(xs)))
 
 
 def _test_reverse():
