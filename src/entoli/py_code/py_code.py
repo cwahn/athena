@@ -322,6 +322,11 @@ class _TestPyIdent:
 
         # ! Qualified names are not considered. PyIdent is for module-level item of upper.
 
+    def _test_PyIdent_mb_import_line(self):
+        ident = PyIdent(module=["os"], mb_name=Just("os"))
+
+        assert ident.mb_import_line(IdEnv({})) == Just("from os import os")
+
 
 @dataclass
 class PyDependecy:
@@ -481,7 +486,7 @@ class PyCode:
             self.deps.values(),
         )
 
-    def code_with_refer(
+    def code_to_content(
         self, imported_content: str
     ) -> str:  # Assume all the dependencies are already imported
         id_env = IdEnv.from_source(imported_content)
@@ -514,7 +519,7 @@ class _TestPyCode:
 
         assert code.weak_deps() == [ident]
 
-    def test_code_with_refer(self):
+    def test_code_to_content(self):
         # ident =
         deps = {
             "os": PyDependecy(
@@ -530,7 +535,7 @@ class _TestPyCode:
             deps=deps,
         )
 
-        assert code.code_with_refer("import os") == "os.os"
+        assert code.code_to_content("import os") == "os.os"
 
 
 def _append_import_lines(content: str, import_lines: Iterable[str]) -> str:
@@ -588,7 +593,7 @@ other_var: int = 20
     def _refer(ident: PyIdent) -> str:
         return ident.refered_as_in(imported_id_env)
 
-    assert _refer(ident_to_import_0) == "os"
+    assert _refer(ident_to_import_0) == "os.os" # os module is imported as os. Therefore, it is refered as os.os
     assert _refer(ident_to_import_1) == "namedtuple"
     assert _refer(ident_to_import_2) == "my_function"
     print("imported_content: ", imported_content)
@@ -878,7 +883,7 @@ def amended_content(content: str, code: PyCode) -> str:
 
     imported_content = _append_import_lines(content, import_lines)
 
-    return code.code_with_refer(imported_content)
+    return code.code_to_content(imported_content)
 
 
 def write_code(dir_path: Path, code: PyCode) -> Io[None]:
