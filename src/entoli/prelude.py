@@ -1,3 +1,4 @@
+import builtins
 import json
 from typing import Any, List, Tuple, TypeVar, Iterable, Callable, Optional, Iterator
 import functools
@@ -15,12 +16,11 @@ _C = TypeVar("_C")
 
 
 def map(f: Callable[[_A], _B], xs: Iterable[_A]) -> Iterable[_B]:
-    return Seq(lambda: (f(x) for x in xs))
+    return Seq(lambda: builtins.map(f, xs))
 
 
-def filter_(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
-    # return Seq(lambda: (x for x in xs if f(x)))
-    return Seq(lambda: filter(f, xs))
+def filter(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
+    return Seq(lambda: builtins.filter(f, xs))
 
 
 def filter_map(f: Callable[[_A], Maybe[_B]], xs: Iterable[_A]) -> Iterable[_B]:
@@ -69,7 +69,7 @@ def null(xs: Iterable[_A]) -> bool:
 
 # ! For some reason, reversed iterator is not working with pattern matching correctly
 def reverse(xs: Iterable[_A]) -> Iterable[_A]:
-    return list(reversed(list(xs)))
+    return Seq(lambda: iter(reversed(list(xs))))
 
 
 def take(n: int, xs: Iterable[_A]) -> Iterable[_A]:
@@ -134,10 +134,15 @@ def find_index(f: Callable[[_A], bool], xs: Iterable[_A]) -> Maybe[int]:
     return Nothing()
 
 
+def zip(xs: Iterable[_A], ys: Iterable[_B]) -> Iterable[Tuple[_A, _B]]:
+    return Seq(lambda: builtins.zip(xs, ys))
+
+
 def zip_with(
     f: Callable[[_A, _B], _C], xs: Iterable[_A], ys: Iterable[_B]
 ) -> Iterable[_C]:
-    return Seq(lambda: (f(x, y) for x, y in zip(xs, ys)))
+    return Seq(lambda: (f(x, y) for x, y in builtins.zip(xs, ys)))
+
 
 def _test_zip_with():
     assert zip_with(lambda x, y: x + y, [], []) == []
@@ -195,7 +200,7 @@ def intercalate(sep: Iterable[_A], xss: Iterable[Iterable[_A]]) -> Iterable[_A]:
 def transpose(xss: Iterable[Iterable[_A]]) -> Iterable[Iterable[_A]]:
     if not xss:
         return Seq(lambda: iter([]))
-    return Seq(lambda: (iter(x) for x in zip(*xss)))
+    return Seq(lambda: (iter(x) for x in builtins.zip(*xss)))
 
 
 # Additional functions

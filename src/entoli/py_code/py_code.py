@@ -10,7 +10,7 @@ from entoli.prelude import (
     append,
     elem,
     map,
-    filter_,
+    filter,
     concat,
     filter_map,
     find,
@@ -647,7 +647,7 @@ def _mb_free_code(
         sorted_ids = list(map(lambda c: c.ident, sorted_codes))
         return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
 
-    free_codes = filter_(is_free, unsorted_codes)
+    free_codes = filter(is_free, unsorted_codes)
 
     try:
         return Just(head(free_codes))
@@ -662,7 +662,7 @@ def _mb_loosely_free_code(
         sorted_ids = list(map(lambda c: c.ident, sorted_codes))
         return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
 
-    free_codes = filter_(is_loosely_free, unsorted_codes)
+    free_codes = filter(is_loosely_free, unsorted_codes)
     less_deps_first = sort_on(lambda c: length(c.deps), free_codes)
 
     try:
@@ -683,7 +683,7 @@ def _raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
                 free_code = free_code_result.value
                 return _raw_ordered_codes(
                     append(acc, free_code),
-                    filter_(lambda c: c != free_code, unordered),
+                    filter(lambda c: c != free_code, unordered),
                 )
             else:
                 loosely_free_code_result = _mb_loosely_free_code(unordered, acc)
@@ -691,7 +691,7 @@ def _raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
                     loosely_free_code = loosely_free_code_result.value
                     return _raw_ordered_codes(
                         append(acc, loosely_free_code),
-                        filter_(lambda c: c != loosely_free_code, unordered),
+                        filter(lambda c: c != loosely_free_code, unordered),
                     )
                 else:
                     raise RuntimeError("Should be unreachable")
