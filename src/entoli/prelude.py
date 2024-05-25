@@ -9,6 +9,7 @@ from entoli.base.typeclass import Ord
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")
+_C = TypeVar("_C")
 
 # map and filter are already built-in functions in Python
 
@@ -44,14 +45,14 @@ def tail(xs: Iterable[_A]) -> Iterable[_A]:
 
 
 def init(xs: Iterable[_A]) -> Iterable[_A]:
-    def _init():
+    def init_():
         it = iter(xs)
         prev = next(it)
         for curr in it:
             yield prev
             prev = curr
 
-    return Seq(_init)
+    return Seq(init_)
 
 
 def last(xs: Iterable[_A]) -> _A:
@@ -131,6 +132,19 @@ def find_index(f: Callable[[_A], bool], xs: Iterable[_A]) -> Maybe[int]:
         if f(x):
             return Just(i)
     return Nothing()
+
+
+def zip_with(
+    f: Callable[[_A, _B], _C], xs: Iterable[_A], ys: Iterable[_B]
+) -> Iterable[_C]:
+    return Seq(lambda: (f(x, y) for x, y in zip(xs, ys)))
+
+def _test_zip_with():
+    assert zip_with(lambda x, y: x + y, [], []) == []
+    assert zip_with(lambda x, y: x + y, [1], []) == []
+    assert zip_with(lambda x, y: x + y, [], [1]) == []
+    assert zip_with(lambda x, y: x + y, [1], [2]) == [3]
+    assert zip_with(lambda x, y: x + y, [1, 2], [3, 4]) == [4, 6]
 
 
 def unzip(pairs: Iterable[Tuple[_A, _B]]) -> Tuple[Iterable[_A], Iterable[_B]]:

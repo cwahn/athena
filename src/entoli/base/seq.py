@@ -72,10 +72,10 @@ class Seq(Generic[_A], Sequence):
 
     def __bool__(self) -> bool:
         return any(True for _ in self)
-    
+
     def __repr__(self) -> str:
         return f"Seq({list(self)})"
-    
+
     def __str__(self) -> str:
         return self.__repr__()
 
