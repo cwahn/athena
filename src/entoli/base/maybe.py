@@ -39,10 +39,10 @@ class Just(Generic[_A]):
     value: _A
 
     def __repr__(self) -> str:
-        return f"Just {self.value}"
+        return f"Just ({self.value})"
 
     def __str__(self) -> str:
-        return repr(self)
+        return self.__repr__()
 
     def __bool__(self) -> bool:
         return True

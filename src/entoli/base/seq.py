@@ -70,6 +70,15 @@ class Seq(Generic[_A], Sequence):
     #     self._cached_list = None  # Invalidate the cache
     #     return self
 
+    def __bool__(self) -> bool:
+        return any(True for _ in self)
+    
+    def __repr__(self) -> str:
+        return f"Seq({list(self)})"
+    
+    def __str__(self) -> str:
+        return self.__repr__()
+
 
 class _TestSeq:
     def _test_as_bool(self):

@@ -64,7 +64,7 @@ def_greet = PyCode(
                 "put_strln",
                 PyDependecy(
                     ident=PyIdent(
-                        module=["src", "entoli", "base", "io"],
+                        module=["entoli", "base", "io"],
                         mb_name=Just("put_strln"),
                     )
                 ),
@@ -73,7 +73,7 @@ def_greet = PyCode(
                 "get_str",
                 PyDependecy(
                     ident=PyIdent(
-                        module=["src", "entoli", "base", "io"],
+                        module=["entoli", "base", "io"],
                         mb_name=Just("get_str"),
                     )
                 ),
@@ -84,7 +84,7 @@ def_greet = PyCode(
 
 run_greet = PyCode(
     ident=PyIdent(
-        module=["some_package", "run"],
+        module=["run"],
         mb_name=Just("run_greet"),
     ),
     code=lambda refer, content: content
@@ -110,14 +110,74 @@ run_greet = PyCode(
 )
 
 put_strln_ = PyCode(
-    ident=PyIdent(module=["src", "entoli", "base", "io"], mb_name=Just("put_strln")),
+    ident=PyIdent(module=["entoli", "base", "io"], mb_name=Just("put_strln")),
     code=lambda refer, content: content,
     deps=Map(),
 )
 
 get_str_ = PyCode(
-    ident=PyIdent(module=["src", "entoli", "base", "io"], mb_name=Just("get_str")),
+    ident=PyIdent(module=["entoli", "base", "io"], mb_name=Just("get_str")),
     code=lambda refer, content: content,
+    deps=Map(),
+)
+
+io_module = PyCode(
+    ident=PyIdent(module=["entoli", "base", "io"], mb_name=Nothing()),
+    code=lambda refer, content: """
+from __future__ import annotations
+from typing import Callable, Generic, Optional, TypeVar
+from dataclasses import dataclass
+
+
+_A = TypeVar("_A")
+_B = TypeVar("_B")
+
+
+@dataclass
+class Io(Generic[_A]):
+    action: Callable[[], _A]
+
+    @staticmethod
+    def fmap(f: Callable[[_A], _B], x: Io[_A]) -> Io[_B]:
+        return Io(lambda: f(x.action()))
+
+    @staticmethod
+    def pure(x: _A) -> Io[_A]:
+        return Io(lambda: x)
+
+    @staticmethod
+    def ap(f: Io[Callable[[_A], _B]], x: Io[_A]) -> Io[_B]:
+        return Io(lambda: f.action()(x.action()))
+
+    @staticmethod
+    def bind(x: Io[_A], f: Callable[[_A], Io[_B]]) -> Io[_B]:
+        return Io(lambda: f(x.action()).action())
+
+    def map(self, f: Callable[[_A], _B]) -> Io[_B]:
+        return Io(lambda: f(self.action()))
+
+    def and_then(self, f: Callable[[_A], Io[_B]]) -> Io[_B]:
+        return Io(lambda: f(self.action()).action())
+
+    def then(self, x: Io[_B]) -> Io[_B]:
+        def inner() -> _B:
+            self.action()
+            return x.action()
+
+        return Io(inner)
+
+
+def put_str(s: str) -> Io[None]:
+    return Io(lambda: print(s, end=""))
+
+
+def put_strln(s: str) -> Io[None]:
+    return Io(lambda: print(s))
+
+
+get_str = Io(input)
+
+    """,
     deps=Map(),
 )
 
@@ -129,6 +189,7 @@ codes = [
     run_greet,
     put_strln_,
     get_str_,
+    io_module,
 ]
 
 assert _all_idents_unique(codes)
