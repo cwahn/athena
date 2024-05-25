@@ -3,8 +3,6 @@ import os
 from pathlib import Path
 from typing import Any, Tuple
 
-from entoli.map import Map
-
 
 # Add the src directory to the Python path
 sys.path.insert(
@@ -109,12 +107,6 @@ def flake_call(flake_path: Path, cmd: str) -> Io[Tuple[int, str, str]]:
 
 model_a = DjangoModel(
     name="ModelA",
-    # fields=Map(
-    #     {
-    #         "name": CharField(max_length=100),
-    #         "is_active": BooleanField(),
-    #     }
-    # ),
     fields={
         "name": CharField(max_length=100),
         "is_active": BooleanField(),
@@ -124,30 +116,13 @@ model_a = DjangoModel(
 
 model_b = DjangoModel(
     name="ModelB",
-    # fields=Map(
-    #     {
-    #         "name": CharField(max_length=100),
-    #     }
-    # ),
     fields={
         "name": CharField(max_length=100),
     },
 )
 
-# model_c = DjangoModel(
-#     name="ModelC",
-#     fields={
-#         "is_active": BooleanField(),
-#     },
-# )
-
 model_c = DjangoModel(
     name="ModelC",
-    # fields=Map(
-    #     {
-    #         "is_active": BooleanField(),
-    #     }
-    # ),
     fields={
         "is_active": BooleanField(),
     },

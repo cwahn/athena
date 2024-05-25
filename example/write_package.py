@@ -10,7 +10,7 @@ sys.path.insert(
 
 
 from entoli.base.maybe import Just, Nothing
-from entoli.map import Map
+
 from entoli.base.io import Io
 from entoli.prelude import body, foldl, unlines, put_strln
 from entoli.system import append_file
@@ -51,6 +51,7 @@ def_greet = PyCode(
     code=lambda refer, content: content
     + unlines(
         [
+            "",
             "greet = (",
             f"    {refer('put_strln')}('What is your name?')",
             f"    .then({refer('get_str')})",
@@ -58,28 +59,6 @@ def_greet = PyCode(
             ")",
         ]
     ),
-    # deps=Map(
-    #     [
-    #         (
-    #             "put_strln",
-    #             PyDependecy(
-    #                 ident=PyIdent(
-    #                     module=["entoli", "base", "io"],
-    #                     mb_name=Just("put_strln"),
-    #                 )
-    #             ),
-    #         ),
-    #         (
-    #             "get_str",
-    #             PyDependecy(
-    #                 ident=PyIdent(
-    #                     module=["entoli", "base", "io"],
-    #                     mb_name=Just("get_str"),
-    #                 )
-    #             ),
-    #         ),
-    #     ]
-    # ),
     deps={
         "put_strln": PyDependecy(
             ident=PyIdent(
@@ -104,23 +83,11 @@ run_greet = PyCode(
     code=lambda refer, content: content
     + unlines(
         [
+            "",
             "if __name__ == '__main__':",
             f"    {refer('greet')}.action()",
         ]
     ),
-    # deps=Map(
-    #     [
-    #         (
-    #             "greet",
-    #             PyDependecy(
-    #                 ident=PyIdent(
-    #                     module=["some_package", "some_module", "some_submodule"],
-    #                     mb_name=Just("greet"),
-    #                 )
-    #             ),
-    #         ),
-    #     ]
-    # ),
     deps={
         "greet": PyDependecy(
             ident=PyIdent(

@@ -11,7 +11,6 @@ from entoli.py_code.py_code import (
     write_codes,
 )
 from entoli.base.maybe import Just, Maybe, Nothing
-# from entoli.map import Map
 
 
 @dataclass
@@ -40,19 +39,6 @@ class BooleanField(DjangoField):
         )
 
     def deps(self) -> Dict[str, PyDependecy]:
-        # return Map(
-        #     [
-        #         (
-        #             "BooleanField",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=["django", "db", "models"],
-        #                     mb_name=Just("BooleanField"),
-        #                 ),
-        #             ),
-        #         )
-        #     ]
-        # )
         return {
             "BooleanField": PyDependecy(
                 ident=PyIdent(
@@ -85,19 +71,6 @@ class CharField(DjangoField):
         )
 
     def deps(self) -> Dict[str, PyDependecy]:
-        # return Map(
-        #     [
-        #         (
-        #             "CharField",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=["django", "db", "models"],
-        #                     mb_name=Just("CharField"),
-        #                 ),
-        #             ),
-        #         )
-        #     ]
-        # )
         return {
             "CharField": PyDependecy(
                 ident=PyIdent(
@@ -114,18 +87,6 @@ class DjangoModel:
     fields: Dict[str, DjangoField]
 
     def deps(self) -> Dict[str, PyDependecy]:
-        # return Map(
-        #     [
-        #         (
-        #             "django_model",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=["django", "db", "models"], mb_name=Nothing()
-        #                 )
-        #             ),
-        #         ),
-        #     ]
-        # )
         return {
             "django_model": PyDependecy(
                 ident=PyIdent(module=["django", "db", "models"], mb_name=Nothing())
@@ -133,18 +94,6 @@ class DjangoModel:
         }
 
     def to_py_codes(self, project_name: str, app_name: str) -> Iterable[PyCode]:
-        # definition_deps = Map(
-        #     [
-        #         (
-        #             "django_model",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=["django", "db", "models"], mb_name=Nothing()
-        #                 )
-        #             ),
-        #         ),
-        #     ]
-        # )
         definition_deps = {
             "django_model": PyDependecy(
                 ident=PyIdent(module=["django", "db", "models"], mb_name=Nothing())
@@ -173,25 +122,6 @@ class DjangoModel:
             deps=definition_deps,
         )
 
-        # model_from_deps = Map(
-        #     [
-        #         (
-        #             "django_forms",
-        #             PyDependecy(
-        #                 ident=PyIdent(module=["django", "forms"], mb_name=Nothing()),
-        #             ),
-        #         ),
-        #         (
-        #             "self_model",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=[project_name, app_name, "models"],
-        #                     mb_name=Just(self.name),
-        #                 )
-        #             ),
-        #         ),
-        #     ]
-        # )
         model_from_deps = {
             "django_forms": PyDependecy(
                 ident=PyIdent(module=["django", "forms"], mb_name=Nothing()),
@@ -224,28 +154,6 @@ class DjangoModel:
             code=_model_form_code,
             deps=model_from_deps,
         )
-
-        # admin_deps = Map(
-        #     [
-        #         (
-        #             "admin",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=["django", "contrib", "admin"], mb_name=Nothing()
-        #                 )
-        #             ),
-        #         ),
-        #         (
-        #             "self_model",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=[project_name, app_name, "models"],
-        #                     mb_name=Just(self.name),
-        #                 )
-        #             ),
-        #         ),
-        #     ]
-        # )
 
         admin_deps = {
             "admin": PyDependecy(
@@ -283,7 +191,6 @@ class DjangoModel:
 @dataclass
 class DjangoApp:
     name: str
-    # models: Map[str, DjangoModel]
     models: Iterable[DjangoModel]
 
     def to_py_codes(self, project_name: str) -> Iterable[PyCode]:
@@ -302,38 +209,6 @@ class DjangoApp:
             code=_installed_apps_code,
             deps=installed_apps_deps,
         )
-
-        # add_to_project_urls_deps = Map(
-        #     [
-        #         (
-        #             "path",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=["django", "urls"],
-        #                     mb_name=Just("path"),
-        #                 ),
-        #             ),
-        #         ),
-        #         (
-        #             "include",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=["django", "urls"],
-        #                     mb_name=Just("include"),
-        #                 ),
-        #             ),
-        #         ),
-        #         (
-        #             "self_urls",
-        #             PyDependecy(
-        #                 ident=PyIdent(
-        #                     module=[project_name, self.name, "urls"],
-        #                     mb_name=Nothing(),
-        #                 ),
-        #             ),
-        #         ),
-        #     ]
-        # )
 
         add_to_project_urls_deps = {
             "path": PyDependecy(
