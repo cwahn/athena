@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Callable, Iterable, Dict
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
-from entoli.map import Map
+
+# from entoli.map import Map
 from entoli.prelude import (
     append,
     elem,
@@ -257,16 +258,21 @@ class _TestPyIdent:
 
     def _test_PyIdent_inverse_name_env(self):
         name_env = IdEnv(
-            inner=Map(
-                [
-                    ("os", PyIdent(module=["os"], mb_name=Just("os"))),
-                    ("os.path", PyIdent(module=["os"], mb_name=Just("os.path"))),
-                    (
-                        "os.path.join",
-                        PyIdent(module=["os"], mb_name=Just("os.path.join")),
-                    ),
-                ]
-            )
+            # inner=Map(
+            #     [
+            #         ("os", PyIdent(module=["os"], mb_name=Just("os"))),
+            #         ("os.path", PyIdent(module=["os"], mb_name=Just("os.path"))),
+            #         (
+            #             "os.path.join",
+            #             PyIdent(module=["os"], mb_name=Just("os.path.join")),
+            #         ),
+            #     ]
+            # )
+            inner={
+                "os": PyIdent(module=["os"], mb_name=Just("os")),
+                "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
+                "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
+            }
         )
 
         ident = PyIdent(module=["os"], mb_name=Just("os"))
@@ -280,16 +286,21 @@ class _TestPyIdent:
 
     def _test_PyIdent_mb_import_line(self):
         name_env = IdEnv(
-            inner=Map(
-                [
-                    ("os", PyIdent(module=["os"], mb_name=Just("os"))),
-                    ("os.path", PyIdent(module=["os"], mb_name=Just("os.path"))),
-                    (
-                        "os.path.join",
-                        PyIdent(module=["os"], mb_name=Just("os.path.join")),
-                    ),
-                ]
-            )
+            # inner=Map(
+            #     [
+            #         ("os", PyIdent(module=["os"], mb_name=Just("os"))),
+            #         ("os.path", PyIdent(module=["os"], mb_name=Just("os.path"))),
+            #         (
+            #             "os.path.join",
+            #             PyIdent(module=["os"], mb_name=Just("os.path.join")),
+            #         ),
+            #     ]
+            # )
+            inner={
+                "os": PyIdent(module=["os"], mb_name=Just("os")),
+                "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
+                "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
+            }
         )
 
         ident = PyIdent(module=["os"], mb_name=Just("os"))
@@ -308,7 +319,7 @@ class PyDependecy:
 
 @dataclass
 class IdEnv:
-    inner: Map[str, PyIdent]
+    inner: Dict[str, PyIdent]
 
     def __call__(self, name: str) -> str:
         return self.inner[name].full_qual_name()
@@ -316,13 +327,15 @@ class IdEnv:
     @staticmethod
     def from_source(src: str) -> "IdEnv":
         if src == "":
-            return IdEnv(Map())
+            # return IdEnv(Map())
+            return IdEnv({})
 
         try:
             tree = ast.parse(src)
         except SyntaxError as e:
             raise ValueError(f"Syntax error in the source code: {e}, src: {src}")
-        env_map = Map([])
+        # env_map = Map([])
+        env_map = {}
 
         class Visitor(ast.NodeVisitor):
             def visit_Import(self, node):
@@ -413,7 +426,7 @@ ReferEnv = Callable[[str], str]
 class PyCode:
     ident: PyIdent
     code: Callable[[ReferEnv, str], str]  # Assume that the file is already created
-    deps: Map[str, PyDependecy]
+    deps: Dict[str, PyDependecy]
 
     def rel_module_path(self) -> Path:
         return self.ident.rel_module_path()
@@ -526,17 +539,20 @@ def _test_are_valid_codes():
         PyCode(
             ident=default_idents[0],
             code=lambda _, __: "",  # No actual implementation
-            deps=Map(),
+            # deps=Map(),
+            deps={},
         ),
         PyCode(
             ident=default_idents[1],
             code=lambda _, __: "",  # No actual implementation
-            deps=Map(),
+            # deps=Map(),
+            deps={},
         ),
         PyCode(
             ident=default_idents[2],
             code=lambda _, __: "",  # No actual implementation
-            deps=Map(),
+            # deps=Map(),
+            deps={},
         ),
     ]
 
@@ -549,25 +565,33 @@ def _test_are_valid_codes():
         PyCode(
             ident=custom_idents[0],
             code=lambda _, __: "print('Hello World')",
-            deps=Map(
-                [
-                    ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
-                    ("path", PyDependecy(ident=default_idents[1], is_strict=True)),
-                ]
-            ),
+            # deps=Map(
+            #     [
+            #         ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
+            #         ("path", PyDependecy(ident=default_idents[1], is_strict=True)),
+            #     ]
+            # ),
+            deps={
+                "os": PyDependecy(ident=default_idents[0], is_strict=True),
+                "path": PyDependecy(ident=default_idents[1], is_strict=True),
+            },
         ),
         PyCode(
             ident=custom_idents[1],
             code=lambda _, __: "class MyClass: pass",
-            deps=Map(
-                [
-                    ("join", PyDependecy(ident=default_idents[2], is_strict=True)),
-                    (
-                        "my_function",
-                        PyDependecy(ident=custom_idents[0], is_strict=True),
-                    ),
-                ],
-            ),
+            # deps=Map(
+            #     [
+            #         ("join", PyDependecy(ident=default_idents[2], is_strict=True)),
+            #         (
+            #             "my_function",
+            #             PyDependecy(ident=custom_idents[0], is_strict=True),
+            #         ),
+            #     ],
+            # ),
+            deps={
+                "join": PyDependecy(ident=default_idents[2], is_strict=True),
+                "my_function": PyDependecy(ident=custom_idents[0], is_strict=True),
+            },
         ),
     ]
 
@@ -674,17 +698,17 @@ def _test_raw_ordered_codes():
         PyCode(
             ident=default_idents[0],
             code=lambda _, __: "",  # No actual implementation
-            deps=Map(),
+            deps={},
         ),
         PyCode(
             ident=default_idents[1],
             code=lambda _, __: "",  # No actual implementation
-            deps=Map(),
+            deps={},
         ),
         PyCode(
             ident=default_idents[2],
             code=lambda _, __: "",  # No actual implementation
-            deps=Map(),
+            deps={},
         ),
     ]
 
@@ -697,19 +721,26 @@ def _test_raw_ordered_codes():
         PyCode(
             ident=custom_idents[0],
             code=lambda _, __: "print('Hello World')",
-            deps=Map(
-                [
-                    ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
-                    ("path", PyDependecy(ident=default_idents[1], is_strict=True)),
-                ]
-            ),
+            # deps=Map(
+            #     [
+            #         ("os", PyDependecy(ident=default_idents[0], is_strict=True)),
+            #         ("path", PyDependecy(ident=default_idents[1], is_strict=True)),
+            #     ]
+            # ),
+            deps={
+                "os": PyDependecy(ident=default_idents[0], is_strict=True),
+                "path": PyDependecy(ident=default_idents[1], is_strict=True),
+            },
         ),
         PyCode(
             ident=custom_idents[1],
             code=lambda _, __: "class MyClass: pass",
-            deps=Map(
-                [("join", PyDependecy(ident=default_idents[2], is_strict=True))],
-            ),
+            # deps=Map(
+            #     [("join", PyDependecy(ident=default_idents[2], is_strict=True))],
+            # ),
+            deps={
+                "join": PyDependecy(ident=default_idents[2], is_strict=True),
+            },
         ),
     ]
 

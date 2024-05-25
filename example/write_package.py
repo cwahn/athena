@@ -31,7 +31,7 @@ from entoli.py_code.py_code import (
 package_init_file = PyCode(
     ident=PyIdent(module=["some_package", "__init__"], mb_name=Nothing()),
     code=lambda refer, content: content,
-    deps=Map(),
+    deps={},
 )
 
 module_init_file = PyCode(
@@ -40,7 +40,7 @@ module_init_file = PyCode(
         mb_name=Nothing(),
     ),
     code=lambda refer, content: content,
-    deps=Map(),
+    deps={},
 )
 
 def_greet = PyCode(
@@ -58,28 +58,42 @@ def_greet = PyCode(
             ")",
         ]
     ),
-    deps=Map(
-        [
-            (
-                "put_strln",
-                PyDependecy(
-                    ident=PyIdent(
-                        module=["entoli", "base", "io"],
-                        mb_name=Just("put_strln"),
-                    )
-                ),
-            ),
-            (
-                "get_str",
-                PyDependecy(
-                    ident=PyIdent(
-                        module=["entoli", "base", "io"],
-                        mb_name=Just("get_str"),
-                    )
-                ),
-            ),
-        ]
-    ),
+    # deps=Map(
+    #     [
+    #         (
+    #             "put_strln",
+    #             PyDependecy(
+    #                 ident=PyIdent(
+    #                     module=["entoli", "base", "io"],
+    #                     mb_name=Just("put_strln"),
+    #                 )
+    #             ),
+    #         ),
+    #         (
+    #             "get_str",
+    #             PyDependecy(
+    #                 ident=PyIdent(
+    #                     module=["entoli", "base", "io"],
+    #                     mb_name=Just("get_str"),
+    #                 )
+    #             ),
+    #         ),
+    #     ]
+    # ),
+    deps={
+        "put_strln": PyDependecy(
+            ident=PyIdent(
+                module=["entoli", "base", "io"],
+                mb_name=Just("put_strln"),
+            )
+        ),
+        "get_str": PyDependecy(
+            ident=PyIdent(
+                module=["entoli", "base", "io"],
+                mb_name=Just("get_str"),
+            )
+        ),
+    },
 )
 
 run_greet = PyCode(
@@ -94,31 +108,39 @@ run_greet = PyCode(
             f"    {refer('greet')}.action()",
         ]
     ),
-    deps=Map(
-        [
-            (
-                "greet",
-                PyDependecy(
-                    ident=PyIdent(
-                        module=["some_package", "some_module", "some_submodule"],
-                        mb_name=Just("greet"),
-                    )
-                ),
-            ),
-        ]
-    ),
+    # deps=Map(
+    #     [
+    #         (
+    #             "greet",
+    #             PyDependecy(
+    #                 ident=PyIdent(
+    #                     module=["some_package", "some_module", "some_submodule"],
+    #                     mb_name=Just("greet"),
+    #                 )
+    #             ),
+    #         ),
+    #     ]
+    # ),
+    deps={
+        "greet": PyDependecy(
+            ident=PyIdent(
+                module=["some_package", "some_module", "some_submodule"],
+                mb_name=Just("greet"),
+            )
+        ),
+    },
 )
 
 put_strln_ = PyCode(
     ident=PyIdent(module=["entoli", "base", "io"], mb_name=Just("put_strln")),
     code=lambda refer, content: content,
-    deps=Map(),
+    deps={},
 )
 
 get_str_ = PyCode(
     ident=PyIdent(module=["entoli", "base", "io"], mb_name=Just("get_str")),
     code=lambda refer, content: content,
-    deps=Map(),
+    deps={},
 )
 
 io_module = PyCode(
@@ -178,7 +200,7 @@ def put_strln(s: str) -> Io[None]:
 get_str = Io(input)
 
     """,
-    deps=Map(),
+    deps={},
 )
 
 
