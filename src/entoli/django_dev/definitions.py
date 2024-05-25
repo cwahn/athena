@@ -9,7 +9,6 @@ from entoli.py_code.py_code import (
     PyDependecy,
     PyIdent,
     ReferEnv,
-    append_import_lines,
     write_codes,
 )
 from entoli.base.maybe import Just, Maybe, Nothing

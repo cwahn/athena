@@ -79,6 +79,15 @@ class Seq(Generic[_A], Sequence):
     def __str__(self) -> str:
         return self.__repr__()
 
+    def __hash__(self) -> int:
+        return hash(tuple(self))
+
+    def __copy__(self) -> "Seq[_A]":
+        return Seq(self.f, self._cached_list)
+
+    def __deepcopy__(self, memo) -> "Seq[_A]":
+        return Seq(self.f, self._cached_list)
+
 
 class _TestSeq:
     def _test_as_bool(self):

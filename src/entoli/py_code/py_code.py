@@ -1,5 +1,4 @@
 import ast
-from calendar import c
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Dict
@@ -22,7 +21,6 @@ from entoli.prelude import (
     is_suffix_of,
     last,
     length,
-    pstr,
     snd,
     init,
     sort_on,
@@ -295,33 +293,8 @@ class _TestPyIdent:
         assert ident.mb_import_line(name_env) == Nothing()
 
         # todo Name of item the same with the module name need to be handled.
-        # ident = PyIdent(module=["os"], mb_name=Nothing())
-        # assert ident.mb_import_line(name_env) == Just("import os")
 
         # ! Qualified names are not considered. PyIdent is for module-level item of upper.
-        # ident = PyIdent(module=["os"], mb_name=Just("os.path"))
-        # assert ident.mb_import_line(name_env) == Just("from os import path")
-
-        # ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
-        # assert ident.mb_import_line(name_env) == Just("from os.path import join")
-
-        # ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
-        # name_env = IdEnv(
-        #     inner=Map(
-        #         [
-        #             ("os", PyIdent(module=["os"], mb_name=Just("os"))),
-        #             ("os.path", PyIdent(module=["os"], mb_name=Just("os.path"))),
-        #             (
-        #                 "os.path.join",
-        #                 PyIdent(module=["os"], mb_name=Just("os.path.join")),
-        #             ),
-        #             ("join", PyIdent(module=["os", "path"], mb_name=Just("join"))),
-        #         ]
-        #     )
-        # )
-        # assert ident.mb_import_line(name_env) == Just(
-        #     "from os.path import join as join_"
-        # )
 
 
 @dataclass
@@ -342,11 +315,6 @@ class IdEnv:
         if src == "":
             return IdEnv(Map())
 
-        # ! temp
-        # assert isinstance(src, str)
-        # print(f"src: {src}")
-
-        # tree = ast.parse(src)
         try:
             tree = ast.parse(src)
         except SyntaxError as e:
@@ -382,26 +350,24 @@ class IdEnv:
 
             def visit_FunctionDef(self, node):
                 qual_name = node.name
-                env_map[qual_name] = PyIdent(module=list([]), mb_name=Just(qual_name))
+                env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
                 self.generic_visit(node)
 
             def visit_ClassDef(self, node):
                 qual_name = node.name
-                env_map[qual_name] = PyIdent(module=list([]), mb_name=Just(qual_name))
+                env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
                 self.generic_visit(node)
 
             def visit_Assign(self, node):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        env_map[target.id] = PyIdent(
-                            module=list([]), mb_name=Just(target.id)
-                        )
+                        env_map[target.id] = PyIdent(module=[], mb_name=Just(target.id))
                 self.generic_visit(node)
 
             def visit_AnnAssign(self, node):
                 if isinstance(node.target, ast.Name):
                     env_map[node.target.id] = PyIdent(
-                        module=list([]), mb_name=Just(node.target.id)
+                        module=[], mb_name=Just(node.target.id)
                     )
                 self.generic_visit(node)
 
@@ -467,14 +433,14 @@ class PyCode:
         assert isinstance(imported_content, str)
         id_env = IdEnv.from_source(imported_content)
 
-        def refer(dep_key: str) -> str:
+        def _refer(dep_key: str) -> str:
             dep_ident = self.deps[dep_key].ident
             return dep_ident.refered_as_in(id_env)
 
-        return self.code(refer, imported_content)
+        return self.code(_refer, imported_content)
 
 
-def append_import_lines(content: str, import_lines: Iterable[str]) -> str:
+def _append_import_lines(content: str, import_lines: Iterable[str]) -> str:
     lines = content.split("\n")
     # Find the end of the import statements
     import_end = 0
@@ -503,13 +469,11 @@ def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
                 return Nothing()
             case Just(visited_idents):
                 if id in visited_idents:
-                    # ! temp
-                    print(f"Already visited: id: {id}, visited: {visited_idents}")
                     return Nothing()
                 else:
                     return Just(concat([visited_idents, [id]]))
 
-    res = foldl(_inner, Just(list[PyIdent]()), idents)
+    res = foldl(_inner, Just([]), idents)
 
     if res == Nothing():
         return False
@@ -644,7 +608,7 @@ def _mb_free_code(
     unsorted_codes: Iterable[PyCode], sorted_codes: Iterable[PyCode]
 ) -> Maybe[PyCode]:
     def is_free(code: PyCode) -> bool:
-        sorted_ids = list(map(lambda c: c.ident, sorted_codes))
+        sorted_ids = map(lambda c: c.ident, sorted_codes)
         return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
 
     free_codes = filter(is_free, unsorted_codes)
@@ -659,8 +623,8 @@ def _mb_loosely_free_code(
     unsorted_codes: Iterable[PyCode], sorted_codes: Iterable[PyCode]
 ) -> Maybe[PyCode]:
     def is_loosely_free(code: PyCode) -> bool:
-        sorted_ids = list(map(lambda c: c.ident, sorted_codes))
-        return all(map(lambda i: i.ident in sorted_ids, code.deps.values()))
+        sorted_ids = map(lambda c: c.ident, sorted_codes)
+        return all(filter(lambda dep: dep.ident in sorted_ids, code.deps.values()))
 
     free_codes = filter(is_loosely_free, unsorted_codes)
     less_deps_first = sort_on(lambda c: length(c.deps), free_codes)
@@ -780,14 +744,12 @@ def mb_ordered_codes(codes: Iterable[PyCode]) -> Maybe[Iterable[PyCode]]:
 
 
 def amended_content(content: str, code: PyCode) -> str:
-    # ! temp
-    assert isinstance(content, str)
     id_env = IdEnv.from_source(content)
 
     dep_idents = map(lambda dep: dep.ident, code.deps.values())
     import_lines = filter_map(lambda ident: ident.mb_import_line(id_env), dep_idents)
 
-    imported_content = append_import_lines(content, import_lines)
+    imported_content = _append_import_lines(content, import_lines)
     assert isinstance(imported_content, str)
 
     return code.code_with_refer(imported_content)
