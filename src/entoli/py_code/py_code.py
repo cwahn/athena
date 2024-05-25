@@ -7,7 +7,10 @@ from entoli.base.maybe import Just, Maybe, Nothing
 
 from entoli.prelude import (
     append,
+    body,
+    concat_map,
     elem,
+    for_each,
     lines,
     map,
     filter,
@@ -255,8 +258,14 @@ class _TestPyIdent:
         other = PyIdent(module=["os"], mb_name=Nothing())
         assert ident.relative_name_to(other) == Just("path.path")
 
-    def _test_PyIdent_inverse_name_env(self):
-        name_env = IdEnv(
+        # ref_ident = PyIdent(module=["auto_project", "auto_app_0"], mb_name=Just("urls"))
+        # ident = PyIdent(
+        #     module=["auto_project", "auto_app_0", "urls"], mb_name=Nothing()
+        # )
+        # assert ident.relative_name_to(ref_ident) == Just("urls")
+
+    def _test_PyIdent_inverse_id_env(self):
+        id_env = IdEnv(
             inner={
                 "os": PyIdent(module=["os"], mb_name=Just("os")),
                 "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
@@ -265,13 +274,13 @@ class _TestPyIdent:
         )
 
         ident = PyIdent(module=["os"], mb_name=Just("os"))
-        assert ident.refered_as_in(name_env) == "os"
+        assert ident.refered_as_in(id_env) == "os"
 
         ident = PyIdent(module=["os"], mb_name=Just("os.path"))
-        assert ident.refered_as_in(name_env) == "os.path"
+        assert ident.refered_as_in(id_env) == "os.path"
 
         ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
-        assert ident.refered_as_in(name_env) == "os.path.join"
+        assert ident.refered_as_in(id_env) == "os.path.join"
 
     def _test_PyIdent_mb_import_line(self):
         name_env = IdEnv(
@@ -423,7 +432,6 @@ class PyCode:
     def code_with_refer(
         self, imported_content: str
     ) -> str:  # Assume all the dependencies are already imported
-        assert isinstance(imported_content, str)
         id_env = IdEnv.from_source(imported_content)
 
         def _refer(dep_key: str) -> str:
@@ -431,6 +439,38 @@ class PyCode:
             return dep_ident.refered_as_in(id_env)
 
         return self.code(_refer, imported_content)
+
+
+class _TestPyCode:
+    def test_strict_deps(self):
+        ident = PyIdent(module=["os"], mb_name=Just("os"))
+        deps = {
+            "os": PyDependecy(ident=ident, is_strict=True),
+            "path": PyDependecy(ident=ident, is_strict=False),
+        }
+        code = PyCode(ident=ident, code=lambda _, __: "", deps=deps)
+
+        assert code.strict_deps() == [ident]
+
+    def test_weak_deps(self):
+        ident = PyIdent(module=["os"], mb_name=Just("os"))
+        deps = {
+            "os": PyDependecy(ident=ident, is_strict=True),
+            "path": PyDependecy(ident=ident, is_strict=False),
+        }
+        code = PyCode(ident=ident, code=lambda _, __: "", deps=deps)
+
+        assert code.weak_deps() == [ident]
+
+    def test_code_with_refer(self):
+        ident = PyIdent(module=["os"], mb_name=Just("os"))
+        deps = {
+            "os": PyDependecy(ident=ident, is_strict=True),
+            "path": PyDependecy(ident=ident, is_strict=False),
+        }
+        code = PyCode(ident=ident, code=lambda refer, _: refer("os"), deps=deps)
+
+        assert code.code_with_refer("import os") == "os"
 
 
 def _append_import_lines(content: str, import_lines: Iterable[str]) -> str:
@@ -449,6 +489,45 @@ def _append_import_lines(content: str, import_lines: Iterable[str]) -> str:
     import_inserted_lines = concat([existing_import_lines, import_lines, rest_lines])
 
     return unlines(import_inserted_lines)
+
+
+def _test_import_and_refer():
+    # Import identifiers to a empty contents, and check if the imported identifiers are refered correctly.
+    source_code = """
+import os
+from collections import namedtuple
+
+def my_function():
+    pass
+    
+class MyClass:
+    def method(self):
+        pass
+        
+my_var = 10      
+other_var: int = 20
+"""
+    id_env = IdEnv.from_source(source_code)
+
+    ident_to_import_0 = PyIdent(module=["os"], mb_name=Just("os"))
+    ident_to_import_1 = PyIdent(module=["collections"], mb_name=Just("namedtuple"))
+    ident_to_import_2 = PyIdent(module=[], mb_name=Just("my_function"))
+
+    import_lines = filter_map(
+        lambda ident: ident.mb_import_line(id_env),
+        [ident_to_import_0, ident_to_import_1, ident_to_import_2],
+    )
+
+    imported_content = _append_import_lines(source_code, import_lines)
+
+    imported_id_env = IdEnv.from_source(imported_content)
+
+    def _refer(ident: PyIdent) -> str:
+        return ident.refered_as_in(imported_id_env)
+
+    assert _refer(ident_to_import_0) == "os"
+    assert _refer(ident_to_import_1) == "namedtuple"
+    assert _refer(ident_to_import_2) == "my_function"
 
 
 def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
@@ -499,9 +578,9 @@ def _no_strict_circular_deps(codes: Iterable[PyCode]) -> bool:
 
 def _are_valid_codes(codes: Iterable[PyCode]) -> bool:
     return (
-        _all_idents_unique(codes)
-        and _all_deps_present(codes)
-        and _no_strict_circular_deps(codes)
+        # _all_idents_unique(codes)
+        # and
+        _all_deps_present(codes) and _no_strict_circular_deps(codes)
     )
 
 
@@ -732,7 +811,6 @@ def amended_content(content: str, code: PyCode) -> str:
     import_lines = filter_map(lambda ident: ident.mb_import_line(id_env), dep_idents)
 
     imported_content = _append_import_lines(content, import_lines)
-    assert isinstance(imported_content, str)
 
     return code.code_with_refer(imported_content)
 
@@ -762,6 +840,36 @@ def write_code(dir_path: Path, code: PyCode) -> Io[None]:
 def write_codes(dir_path: Path, codes: Iterable[PyCode]) -> Io[None]:
     match mb_ordered_codes(codes):
         case Nothing():
+            # if not _all_idents_unique(codes):
+            #     idents: Iterable[PyIdent] = map(lambda c: c.ident, codes)
+
+            #     for_each(
+            #         lambda ident: body(
+            #             degeneracy := length(filter(lambda i: i == ident, idents)),
+            #             if_else(
+            #                 degeneracy > 1,
+            #                 print(
+            #                     f"Duplicated ident: {ident}, degeneracy: {degeneracy}"
+            #                 ),
+            #                 None,
+            #             ),
+            #         ),
+            #         idents,
+            #     )
+
+            #     raise ValueError("Idents are not unique")
+            # el
+
+            if not _all_deps_present(codes):
+                deps = unique(concat_map(lambda c: c.deps.values(), codes))
+                for dep in deps:
+                    if not elem(dep.ident, map(lambda c: c.ident, codes)):
+                        print(f"Dependency not present: {dep.ident}")
+
+                raise ValueError("Some dependencies are not present")
+            elif not _no_strict_circular_deps(codes):
+                raise ValueError("Codes are not valid")
+
             raise ValueError("Codes are not valid")
         case Just(ordered_codes):
             return foldl(

@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Protocol, List
 
-from entoli.prelude import concat, filter_map, map, unlines
+from entoli.prelude import append, concat, filter_map, map, unlines
 from entoli.py_code.py_code import (
     PyCode,
     PyDependecy,
@@ -210,12 +210,21 @@ class DjangoApp:
             deps=installed_apps_deps,
         )
 
-        add_to_project_urls_deps = {
-            "path": PyDependecy(
-                ident=PyIdent(module=["django", "urls"], mb_name=Just("path")),
+        app_urls = PyCode(
+            ident=PyIdent(
+                module=[project_name, self.name, "urls"],
+                mb_name=Nothing(),
             ),
-            "include": PyDependecy(
-                ident=PyIdent(module=["django", "urls"], mb_name=Just("include")),
+            code=lambda refer, content: content,
+            deps={},
+        )
+
+        add_to_project_urls_deps = {
+            # "path": PyDependecy(
+            #     ident=PyIdent(module=["django", "urls"], mb_name=Nothing()),
+            # ),
+            "django_url": PyDependecy(
+                ident=PyIdent(module=["django", "urls"], mb_name=Nothing()),
             ),
             "self_urls": PyDependecy(
                 ident=PyIdent(
@@ -250,7 +259,43 @@ class DjangoApp:
             )
         )
 
-        return [installed_apps, add_to_project_urls, *model_codes]
+        return [installed_apps, app_urls, add_to_project_urls, *model_codes]
+
+
+_django_default_codes = [
+    PyCode(
+        ident=PyIdent(
+            module=["django", "db", "models"],
+            mb_name=Nothing(),
+        ),
+        code=lambda refer, content: content,
+        deps={},
+    ),
+    PyCode(
+        ident=PyIdent(
+            module=["django", "forms"],
+            mb_name=Nothing(),
+        ),
+        code=lambda refer, content: content,
+        deps={},
+    ),
+    PyCode(
+        ident=PyIdent(
+            module=["django", "contrib", "admin"],
+            mb_name=Nothing(),
+        ),
+        code=lambda refer, content: content,
+        deps={},
+    ),
+    PyCode(
+        ident=PyIdent(
+            module=["django", "urls"],
+            mb_name=Nothing(),
+        ),
+        code=lambda refer, content: content,
+        deps={},
+    ),
+]
 
 
 @dataclass
@@ -259,16 +304,16 @@ class DjangoProject:
     apps: List[DjangoApp]
 
     def to_py_codes(self) -> Iterable[PyCode]:
-        model_codes = concat(
+        app_codes = concat(
             map(
                 lambda app: app.to_py_codes(self.name),
                 self.apps,
             )
         )
 
-        return model_codes
+        return app_codes
 
     def write(self, dir_path: Path):
-        codes = self.to_py_codes()
+        codes = append(_django_default_codes, self.to_py_codes())
 
         return write_codes(dir_path, codes)

@@ -28,6 +28,13 @@ from entoli.django_dev.definitions import (
     DjangoProject,
 )
 
+from rich.traceback import install
+
+install(show_locals=True)
+
+# flake_path = Path(__file__).parent.absolute() / "build"
+flake_path = Path.home() / "Desktop" / "build"
+
 flake_content = """
 {
   description = "A Python 3.12 development environment";
@@ -76,9 +83,6 @@ flake_content = """
 }
 
 """
-
-# flake_path = Path(__file__).parent.absolute() / "build"
-flake_path = Path.home() / "build"
 
 
 # Call nix d
