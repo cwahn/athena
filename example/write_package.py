@@ -11,8 +11,8 @@ sys.path.insert(
 
 from entoli.base.maybe import Just, Nothing
 from entoli.map import Map
-from entoli.base.io import Io, put_strln
-from entoli.prelude import body, foldl, unlines
+from entoli.base.io import Io
+from entoli.prelude import body, foldl, unlines, put_strln
 from entoli.system import append_file
 
 # from entoli.django_dev.py_code import PyCode, PyIdent, write_py_code

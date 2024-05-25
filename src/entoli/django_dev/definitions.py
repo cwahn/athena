@@ -12,13 +12,11 @@ from entoli.py_code.py_code import (
 )
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.map import Map
-from entoli.py_code.py_code import IdEnv
 
 
 @dataclass
 class DjangoField(Protocol):
     def to_py_snippet(self, refer: ReferEnv, field_name) -> str: ...
-    # def deps(self) -> Iterable[PyDependecy]: ...
     def deps(self) -> Map[str, PyDependecy]: ...
 
 

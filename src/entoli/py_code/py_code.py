@@ -1,7 +1,6 @@
 import ast
 from dataclasses import dataclass
 from pathlib import Path
-from re import split
 from typing import Callable, Iterable, Dict
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -28,7 +27,6 @@ from entoli.prelude import (
     sort_on,
     split_at,
     tail,
-    take,
     unique,
     unlines,
 )

@@ -3,8 +3,6 @@ import os
 from pathlib import Path
 from typing import Any, Tuple
 
-from entoli.prelude import unlines
-
 
 # Add the src directory to the Python path
 sys.path.insert(
@@ -19,9 +17,10 @@ from entoli.process import (
     h_get_contents,
     wait_for_process,
 )
-from entoli.base.io import Io, put_strln
+from entoli.prelude import unlines, put_strln
+from entoli.base.io import Io
 
-from entoli.django_dev.core import (
+from entoli.django_dev.definitions import (
     BooleanField,
     CharField,
     DjangoApp,

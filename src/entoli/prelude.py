@@ -5,6 +5,7 @@ import functools
 
 from dataclasses import dataclass
 
+from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
 from entoli.base.typeclass import Ord
@@ -437,11 +438,7 @@ def _test_lookup():
 # Zipping and unzipping lists
 
 
-# todo Maybe variadic function
-# def zip(xs: Iterable[_A], ys: Iterable[_B]) -> Iterable[Tuple[_A, _B]]:
-#     return Seq(lambda: builtins.zip(xs, ys))
-
-
+# Variadic version of zip
 def zip(*xss: Iterable[_A]) -> Iterable[Tuple[_A, ...]]:
     return Seq(lambda: builtins.zip(*xss))
 
@@ -540,6 +537,20 @@ def _test_unwords():
     assert unwords(["a"]) == "a"
     assert unwords(["a", "b"]) == "a b"
     assert unwords(["a", "b", ""]) == "a b"
+
+
+# io
+
+
+def put_str(s: str) -> Io[None]:
+    return Io(lambda: print(s, end=""))
+
+
+def put_strln(s: str) -> Io[None]:
+    return Io(lambda: print(s))
+
+
+get_str = Io(input)
 
 
 # Additional functions

@@ -41,14 +41,3 @@ class Io(Generic[_A]):
             return x.action()
 
         return Io(inner)
-
-
-def put_str(s: str) -> Io[None]:
-    return Io(lambda: print(s, end=""))
-
-
-def put_strln(s: str) -> Io[None]:
-    return Io(lambda: print(s))
-
-
-get_str = Io(input)
