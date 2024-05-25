@@ -682,7 +682,7 @@ def _raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
             if isinstance(free_code_result, Just):
                 free_code = free_code_result.value
                 return _raw_ordered_codes(
-                    append(acc, free_code),
+                    append(acc, [free_code]),
                     filter(lambda c: c != free_code, unordered),
                 )
             else:
@@ -690,7 +690,7 @@ def _raw_ordered_codes(codes: Iterable[PyCode]) -> Iterable[PyCode]:
                 if isinstance(loosely_free_code_result, Just):
                     loosely_free_code = loosely_free_code_result.value
                     return _raw_ordered_codes(
-                        append(acc, loosely_free_code),
+                        append(acc, [loosely_free_code]),
                         filter(lambda c: c != loosely_free_code, unordered),
                     )
                 else:
