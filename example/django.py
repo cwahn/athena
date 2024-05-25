@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from typing import Any, Tuple
 
+from entoli.prelude import unlines
+
 
 # Add the src directory to the Python path
 sys.path.insert(
@@ -148,20 +150,11 @@ main = (
     .then(
         flake_call(
             flake_path,
-            "\n".join(
+            unlines(
                 [
                     "pip install django",
                     "django-admin --version",
                     "django-admin startproject auto_project",
-                    # "cd auto_project",
-                    # "python manage.py startapp auto_app_0",
-                    # "python manage.py startapp auto_app_1",
-                    # "python manage.py makemigrations",
-                    # "python manage.py migrate",
-                    # "export DJANGO_SUPERUSER_USERNAME=admin",
-                    # "export DJANGO_SUPERUSER_EMAIL=a@a.com",
-                    # "export DJANGO_SUPERUSER_PASSWORD=admin",
-                    # "python manage.py createsuperuser --noinput",
                 ]
             ),
         )
@@ -175,7 +168,7 @@ main = (
     .then(
         flake_call(
             flake_path,
-            "\n".join(
+            unlines(
                 [
                     "cd auto_project",
                     "python manage.py startapp auto_app_0",
@@ -196,6 +189,7 @@ main = (
         .then(put_strln(f"stderr: {res[2]}"))
     )
 )
+
 
 if __name__ == "__main__":
     main.action()

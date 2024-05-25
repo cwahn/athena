@@ -1,6 +1,7 @@
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from re import split
 from typing import Callable, Iterable, Dict
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -8,6 +9,7 @@ from entoli.map import Map
 from entoli.prelude import (
     append,
     elem,
+    lines,
     map,
     filter,
     concat,
@@ -24,8 +26,11 @@ from entoli.prelude import (
     snd,
     init,
     sort_on,
+    split_at,
     tail,
+    take,
     unique,
+    unlines,
 )
 from entoli.system import create_dir_if_missing, file_exists, read_file, write_file
 
@@ -441,10 +446,10 @@ class PyCode:
 
 
 def _append_import_lines(content: str, import_lines: Iterable[str]) -> str:
-    lines = content.split("\n")
+    lines_ = lines(content)
     # Find the end of the import statements
     import_end = 0
-    for i, line in enumerate(lines):
+    for i, line in enumerate(lines_):
         if line.startswith("import ") or line.startswith("from "):
             import_end = i + 1
         elif line.strip() == "":
@@ -452,12 +457,10 @@ def _append_import_lines(content: str, import_lines: Iterable[str]) -> str:
         else:
             break
 
-    # Insert the new import line at the end of the imports
-    for line in import_lines:
-        lines.insert(import_end, line)
+    existing_import_lines, rest_lines = split_at(import_end, lines_)
+    import_inserted_lines = concat([existing_import_lines, import_lines, rest_lines])
 
-    new_content = "\n".join(lines)
-    return new_content
+    return unlines(import_inserted_lines)
 
 
 def _all_idents_unique(codes: Iterable[PyCode]) -> bool:

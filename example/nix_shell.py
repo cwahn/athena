@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from typing import Any, Tuple
 
+from entoli.prelude import unlines
+
 
 # Add the src directory to the Python path
 sys.path.insert(
@@ -106,7 +108,7 @@ main = (
     .then(
         flake_call(
             flake_path,
-            "\n".join(
+            unlines(
                 [
                     "pip install django",
                     "django-admin --version",

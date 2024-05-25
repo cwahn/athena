@@ -1,5 +1,4 @@
 from __future__ import annotations
-from re import L
 from typing import Any, Callable, List, Protocol, Type, TypeVar
 
 

@@ -12,7 +12,7 @@ sys.path.insert(
 from entoli.base.maybe import Just, Nothing
 from entoli.map import Map
 from entoli.base.io import Io, put_strln
-from entoli.prelude import body, foldl
+from entoli.prelude import body, foldl, unlines
 from entoli.system import append_file
 
 # from entoli.django_dev.py_code import PyCode, PyIdent, write_py_code
@@ -49,7 +49,7 @@ def_greet = PyCode(
         mb_name=Just("greet"),
     ),
     code=lambda refer, content: content
-    + "\n".join(
+    + unlines(
         [
             "greet = (",
             f"    {refer('put_strln')}('What is your name?')",
@@ -88,7 +88,7 @@ run_greet = PyCode(
         mb_name=Just("run_greet"),
     ),
     code=lambda refer, content: content
-    + "\n".join(
+    + unlines(
         [
             "if __name__ == '__main__':",
             f"    {refer('greet')}.action()",

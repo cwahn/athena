@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from pyexpat import model
 from typing import Callable, Iterable, Protocol, List
 
-from entoli.prelude import concat, filter_map, map
+from entoli.prelude import concat, filter_map, map, unlines
 from entoli.py_code.py_code import (
     PyCode,
     PyDependecy,
@@ -32,7 +31,15 @@ class BooleanField(DjangoField):
     mb_help_text: Maybe[str] = field(default_factory=Nothing)
 
     def to_py_snippet(self, refer: ReferEnv, field_name) -> str:
-        return f"{refer('BooleanField')}(null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
+        return unlines(
+            [
+                f"{refer('BooleanField')}(null={self.null},",
+                f"    default={self.mb_default.unwrap() if self.mb_default else None},",
+                f"    blank={self.blank},",
+                f"    verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None},",
+                f"    help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})",
+            ]
+        )
 
     def deps(self) -> Map[str, PyDependecy]:
         return Map(
@@ -60,7 +67,16 @@ class CharField(DjangoField):
     mb_help_text: Maybe[str] = field(default_factory=Nothing)
 
     def to_py_snippet(self, refer: ReferEnv, field_name) -> str:
-        return f"{refer('CharField')}(max_length={self.max_length}, null={self.null}, default={self.mb_default.unwrap() if self.mb_default else None}, blank={self.blank}, verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None}, help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})"
+        return unlines(
+            [
+                f"{refer('CharField')}(max_length={self.max_length},",
+                f"    null={self.null},",
+                f"    default={self.mb_default.unwrap() if self.mb_default else None},",
+                f"    blank={self.blank},",
+                f"    verbose_name={self.mb_verbose_name.unwrap() if self.mb_verbose_name else None},",
+                f"    help_text={self.mb_help_text.unwrap() if self.mb_help_text else '""'})",
+            ]
+        )
 
     def deps(self) -> Map[str, PyDependecy]:
         return Map(
@@ -112,7 +128,7 @@ class DjangoModel:
         )
 
         def _definition_code(refer: ReferEnv, imported_content) -> str:
-            def_lines = "\n".join(
+            def_lines = unlines(
                 [
                     f"class {self.name}({refer('django_model')}.Model):",
                     *[
@@ -154,7 +170,7 @@ class DjangoModel:
         )
 
         def _model_form_code(refer: ReferEnv, imported_content: str) -> str:
-            model_form_lines = "\n".join(
+            model_form_lines = unlines(
                 [
                     f"class {self.name}Form({refer('django_form')}.ModelForm):",
                     "    class Meta:",
@@ -197,8 +213,10 @@ class DjangoModel:
         )
 
         def _admin_code(refer: ReferEnv, imported_content: str) -> str:
-            admin_lines = "\n".join(
-                [f"{refer('admin')}.site.register({refer('self_model')})"]
+            admin_lines = unlines(
+                [
+                    f"{refer('admin')}.site.register({refer('self_model')})",
+                ]
             )
 
             return f"{imported_content}\n{admin_lines}"
@@ -224,13 +242,7 @@ class DjangoApp:
         installed_apps_deps = Map([])
 
         def _installed_apps_code(refer: ReferEnv, imported_content: str) -> str:
-            installed_apps_lines = "\n".join(
-                [
-                    "INSTALLED_APPS += [",
-                    *[f"    '{self.name}',"],
-                    "]",
-                ]
-            )
+            installed_apps_lines = f"INSTALLED_APPS += ['{self.name}']"
 
             return f"{imported_content}\n{installed_apps_lines}"
 
@@ -276,7 +288,7 @@ class DjangoApp:
         )
 
         def _add_to_project_urls_code(refer: ReferEnv, imported_content: str) -> str:
-            add_to_project_urls_lines = "\n".join(
+            add_to_project_urls_lines = unlines(
                 [
                     f"path('{self.name}/', include('{refer('self_urls')}')),",
                 ]
@@ -292,8 +304,6 @@ class DjangoApp:
             code=_add_to_project_urls_code,
             deps=add_to_project_urls_deps,
         )
-
-        # return [installed_apps, add_to_project_urls]
 
         model_codes = concat(
             map(

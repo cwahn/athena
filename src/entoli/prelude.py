@@ -13,6 +13,44 @@ _A = TypeVar("_A")
 _B = TypeVar("_B")
 _C = TypeVar("_C")
 
+# Tuple
+
+
+def fst(pair: Tuple[_A, _B]) -> _A:
+    return pair[0]
+
+
+def _test_fst():
+    assert fst((1, 2)) == 1
+
+
+def snd(pair: Tuple[_A, _B]) -> _B:
+    return pair[1]
+
+
+def _test_snd():
+    assert snd((1, 2)) == 2
+
+
+def curry(f: Callable[[_A, _B], _C]) -> Callable[[_A], Callable[[_B], _C]]:
+    return lambda x: lambda y: f(x, y)
+
+
+def _test_curry():
+    def _add(x, y):
+        return x + y
+
+    assert curry(_add)(1)(2) == 3  # type : ignore
+
+
+def uncurry(f: Callable[[_A], Callable[[_B], _C]]) -> Callable[[_A, _B], _C]:
+    return lambda x, y: f(x)(y)
+
+
+def _test_uncurry():
+    assert uncurry(lambda x: lambda y: x + y)(1, 2) == 3  # type: ignore
+
+
 # Folds and traversals
 
 
@@ -691,37 +729,7 @@ def _test_is_suffix_of():
     assert not is_suffix_of([1, 2], [4, 3, 1])
 
 
-def fst(pair: Tuple[_A, _B]) -> _A:
-    return pair[0]
-
-
-def _test_fst():
-    assert fst((1, 2)) == 1
-
-
-def snd(pair: Tuple[_A, _B]) -> _B:
-    return pair[1]
-
-
-def _test_snd():
-    assert snd((1, 2)) == 2
-
-
-# def append(xs: Iterable[_A], x: _A) -> Iterable[_A]:
-#     def _append():
-#         yield from xs
-#         yield x
-
-#     return Seq(_append)
-
-
-# def _test_append():
-#     assert append([], 1) == [1]
-#     assert append([1], 2) == [1, 2]
-#     assert append([1, 2], 3) == [1, 2, 3]
-
-
-# Others
+# Other
 
 
 # ! Side-effect
@@ -736,17 +744,3 @@ def if_else(cond: bool, t: _A, f: _A) -> _A:
 
 def body(*exps):
     return [exp for exp in exps][-1]
-
-
-def pstr(x: _A) -> str:
-    def _to_dict(obj: _A) -> Any:
-        if isinstance(obj, list):
-            return [_to_dict(i) for i in obj]
-        elif isinstance(obj, dict):
-            return {k: _to_dict(v) for k, v in obj.items()}
-        elif hasattr(obj, "__dict__"):
-            return {k: _to_dict(v) for k, v in obj.__dict__.items()}
-        else:
-            return obj
-
-    return json.dumps(_to_dict(x), indent=2, default=str)
