@@ -87,7 +87,7 @@ class PyIdent:
         else:
             return is_prefix_of(wc_striped, other_parts)
 
-    def relative_name_to(self, other: "PyIdent") -> Maybe[str]:
+    def relative_name_to(self, other_parts: Iterable[str]) -> Maybe[str]:
         def _relative_name_to(
             self_part: Iterable[str], other_part: Iterable[str]
         ) -> Maybe[str]:
@@ -106,14 +106,18 @@ class PyIdent:
 
             raise RuntimeError("Unreachable code")
 
-        return _relative_name_to(
-            self.full_qual_name_parts(), other.full_qual_name_parts()
-        )
+        return _relative_name_to(self.full_qual_name_parts(), other_parts)
 
-    def refered_as_in(self, name_env: "IdEnv") -> str:
+    def refered_as_in(self, id_env: "IdEnv") -> str:
         relevant_env = filter_map(
-            lambda key_id: if_else(snd(key_id).includes(self), Just(key_id), Nothing()),
-            name_env.inner.items(),
+            # lambda key_name_parts: if_else(snd(key_name_parts).includes(self), Just(key_name_parts), Nothing()),
+            # if relavent includes self
+            lambda key_id: if_else(
+                is_prefix_of(snd(key_id), self.full_qual_name_parts()),
+                Just(key_id),
+                Nothing(),
+            ),
+            id_env.inner.items(),
         )
 
         if length(relevant_env) == 0:
@@ -123,13 +127,19 @@ class PyIdent:
                 f"Multiple relevant env for {self}, {relevant_env}. Ambiguous."
             )
         else:
-            relevant_ident = snd(head(relevant_env))
-            relevent_key = fst(head(relevant_env))
-            if self == relevant_ident:  # exact import or definition
+            # relevent_key = fst(head(relevant_env))
+            # relevant_ident = snd(head(relevant_env))
+            relevent_key, relevant_name_parts = head(relevant_env)
+
+            if (
+                self.full_qual_name_parts() == relevant_name_parts
+            ):  # exact import or definition
                 return relevent_key
             else:  # partial import
                 return (
-                    relevent_key + "." + self.relative_name_to(relevant_ident).unwrap()
+                    relevent_key
+                    + "."
+                    + self.relative_name_to(relevant_name_parts).unwrap()
                 )
 
     def mb_import_line(self, id_env: "IdEnv") -> Maybe[str]:
@@ -137,7 +147,11 @@ class PyIdent:
             return Nothing()
         else:
             mb_relevent = find(
-                lambda key_id: snd(key_id).includes(self), id_env.inner.items()
+                # lambda key_id: snd(key_id).includes(self), id_env.inner.items()
+                lambda key_name_parts: is_prefix_of(
+                    snd(key_name_parts), self.full_qual_name_parts()
+                ),
+                id_env.inner.items(),
             )
             if mb_relevent:  # Maybe already imported
                 return Nothing()
@@ -244,19 +258,19 @@ class _TestPyIdent:
 
         ident = PyIdent(module=["os"], mb_name=Just("os"))
         other = PyIdent(module=["os"], mb_name=Nothing())
-        assert ident.relative_name_to(other) == Just("os")
+        assert ident.relative_name_to(other.full_qual_name_parts()) == Just("os")
 
         ident = PyIdent(module=["os"], mb_name=Nothing())
         other = PyIdent(module=["os"], mb_name=Just("os"))
-        assert ident.relative_name_to(other) == Nothing()
+        assert ident.relative_name_to(other.full_qual_name_parts()) == Nothing()
 
         ident = PyIdent(module=["os"], mb_name=Nothing())
         other = PyIdent(module=["os", "path"], mb_name=Just("path"))
-        assert ident.relative_name_to(other) == Nothing()
+        assert ident.relative_name_to(other.full_qual_name_parts()) == Nothing()
 
         ident = PyIdent(module=["os", "path"], mb_name=Just("path"))
         other = PyIdent(module=["os"], mb_name=Nothing())
-        assert ident.relative_name_to(other) == Just("path.path")
+        assert ident.relative_name_to(other.full_qual_name_parts()) == Just("path.path")
 
         # ref_ident = PyIdent(module=["auto_project", "auto_app_0"], mb_name=Just("urls"))
         # ident = PyIdent(
@@ -266,10 +280,15 @@ class _TestPyIdent:
 
     def _test_PyIdent_inverse_id_env(self):
         id_env = IdEnv(
+            # inner={
+            #     "os": PyIdent(module=["os"], mb_name=Just("os")),
+            #     "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
+            #     "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
+            # }
             inner={
-                "os": PyIdent(module=["os"], mb_name=Just("os")),
-                "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
-                "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
+                "os": ["os", "os"],
+                "os.path": ["os", "os", "path"],
+                "os.path.join": ["os", "os", "path", "join"],
             }
         )
 
@@ -284,10 +303,15 @@ class _TestPyIdent:
 
     def _test_PyIdent_mb_import_line(self):
         name_env = IdEnv(
+            # inner={
+            #     "os": PyIdent(module=["os"], mb_name=Just("os")),
+            #     "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
+            #     "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
+            # }
             inner={
-                "os": PyIdent(module=["os"], mb_name=Just("os")),
-                "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
-                "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
+                "os": ["os", "os"],
+                "os.path": ["os", "os", "path"],
+                "os.path.join": ["os", "os", "path", "join"],
             }
         )
 
@@ -307,10 +331,17 @@ class PyDependecy:
 
 @dataclass
 class IdEnv:
-    inner: Dict[str, PyIdent]
+    inner: Dict[str, Iterable[str]]
 
     def __call__(self, name: str) -> str:
-        return self.inner[name].full_qual_name()
+        len = length(self.inner[name])
+        assert not isinstance(self.inner[name], str)
+        if len == 0:
+            raise ValueError(f"Name {name} is not defined in the environment.")
+        elif len == 1:
+            return head(self.inner[name])
+        else:
+            return ".".join(self.inner[name])
 
     @staticmethod
     def from_source(src: str) -> "IdEnv":
@@ -326,10 +357,11 @@ class IdEnv:
         class Visitor(ast.NodeVisitor):
             def visit_Import(self, node):
                 for alias in node.names:
-                    module = alias.name
-                    env_map[alias.asname or alias.name] = PyIdent(
-                        module=[module], mb_name=Just(alias.name)
-                    )
+                    # module = alias.name
+                    # env_map[alias.asname or alias.name] = PyIdent(
+                    #     module=[module], mb_name=Just(alias.name)
+                    # )
+                    env_map[alias.asname or alias.name] = [alias.name]
 
             def visit_ImportFrom(self, node):
                 match node.module:
@@ -338,41 +370,47 @@ class IdEnv:
                     case md:
                         module_parts = md.split(".")
 
-                if "*" in [alias.name for alias in node.names]:
-                    env_map[node.module] = PyIdent(
-                        module=module_parts, mb_name=Just("*")
-                    )
+                # if "*" in [alias.name for alias in node.names]:
+                #     env_map[node.module] = PyIdent(
+                #         module=module_parts, mb_name=Just("*")
+                #     )
 
-                else:
-                    for alias in node.names:
-                        qual_name = alias.name
-                        env_map[alias.asname or alias.name] = PyIdent(
-                            # ! This name could be either module or item in the module.
-                            # ! There is no way to distinguish them.
-                            module=module_parts, mb_name=Just(qual_name)
-                        )
+                # else:
+                for alias in node.names:
+                    env_map[alias.asname or alias.name] = [alias.name]
+                    # qual_name = alias.name
+                    # env_map[alias.asname or alias.name] = PyIdent(
+                    #     # ! This name could be either module or item in the module.
+                    #     # ! There is no way to distinguish them.
+                    #     module=module_parts,
+                    #     mb_name=Just(qual_name),
+                    # )
 
             def visit_FunctionDef(self, node):
                 qual_name = node.name
-                env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
+                # env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
+                env_map[qual_name] = [qual_name]
                 self.generic_visit(node)
 
             def visit_ClassDef(self, node):
                 qual_name = node.name
-                env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
+                # env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
+                env_map[qual_name] = [qual_name]
                 self.generic_visit(node)
 
             def visit_Assign(self, node):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        env_map[target.id] = PyIdent(module=[], mb_name=Just(target.id))
+                        # env_map[target.id] = PyIdent(module=[], mb_name=Just(target.id))
+                        env_map[target.id] = [target.id]
                 self.generic_visit(node)
 
             def visit_AnnAssign(self, node):
                 if isinstance(node.target, ast.Name):
-                    env_map[node.target.id] = PyIdent(
-                        module=[], mb_name=Just(node.target.id)
-                    )
+                    # env_map[node.target.id] = PyIdent(
+                    #     module=[], mb_name=Just(node.target.id)
+                    # )
+                    env_map[node.target.id] = [node.target.id]
                 self.generic_visit(node)
 
         Visitor().visit(tree)
@@ -398,12 +436,12 @@ other_var: int = 20
 """
         id_env = IdEnv.from_source(source_code)
 
-        assert id_env("os") == "os.os"
-        assert id_env("namedtuple") == "collections.namedtuple"
-        assert id_env("my_function") == ".my_function"
-        assert id_env("MyClass") == ".MyClass"
-        assert id_env("my_var") == ".my_var"
-        assert id_env("other_var") == ".other_var"
+        assert id_env("os") == "os"
+        assert id_env("namedtuple") == "namedtuple"
+        assert id_env("my_function") == "my_function"
+        assert id_env("MyClass") == "MyClass"
+        assert id_env("my_var") == "my_var"
+        assert id_env("other_var") == "other_var"
 
     def _test_from_source_(self):
         source_code = ""
@@ -477,14 +515,22 @@ class _TestPyCode:
         assert code.weak_deps() == [ident]
 
     def test_code_with_refer(self):
-        ident = PyIdent(module=["os"], mb_name=Just("os"))
+        # ident =
         deps = {
-            "os": PyDependecy(ident=ident, is_strict=True),
-            "path": PyDependecy(ident=ident, is_strict=False),
+            "os": PyDependecy(
+                ident=PyIdent(module=["os"], mb_name=Just("os")), is_strict=True
+            ),
+            "path": PyDependecy(
+                ident=PyIdent(module=["os"], mb_name=Just("path")), is_strict=False
+            ),
         }
-        code = PyCode(ident=ident, code=lambda refer, _: refer("os"), deps=deps)
+        code = PyCode(
+            ident=PyIdent(module=["."], mb_name=Nothing()),
+            code=lambda refer, _: refer("os"),
+            deps=deps,
+        )
 
-        assert code.code_with_refer("import os") == "os"
+        assert code.code_with_refer("import os") == "os.os"
 
 
 def _append_import_lines(content: str, import_lines: Iterable[str]) -> str:
