@@ -562,7 +562,7 @@ other_var: int = 20
     assert _refer(ident_to_import_2) == "my_function"
     print("imported_content: ", imported_content)
     print("imported_id_env: ", imported_id_env.inner)
-    assert _refer(ident_to_import_3) == ".urls"
+    assert _refer(ident_to_import_3) == "urls"
 
 
 def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
