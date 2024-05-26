@@ -231,11 +231,6 @@ class _TestPyIdent:
         ident = PyIdent(module=["os"], mb_name=Just("*"))
         assert ident.is_wildcard()
 
-        # Not considering qualified names.
-        # This is for module-level or upper.
-        # ident = PyIdent(module=["os"], mb_name=Just("os.*"))
-        # assert ident.is_wildcard()
-
     def _test_PyIdent_includes(self):
         ident = PyIdent(module=["os"], mb_name=Just("os"))
         other = PyIdent(module=["os"], mb_name=Just("os"))
@@ -280,34 +275,26 @@ class _TestPyIdent:
 
     def _test_PyIdent_inverse_id_env(self):
         id_env = IdEnv(
-            # inner={
-            #     "os": PyIdent(module=["os"], mb_name=Just("os")),
-            #     "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
-            #     "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
-            # }
             inner={
                 "os": ["os", "os"],
-                "os.path": ["os", "os", "path"],
-                "os.path.join": ["os", "os", "path", "join"],
+                "sys": ["sys", "sys"],
+                "models": ["django", "db", "models"],
             }
         )
 
         ident = PyIdent(module=["os"], mb_name=Just("os"))
         assert ident.refered_as_in(id_env) == "os"
 
-        ident = PyIdent(module=["os"], mb_name=Just("os.path"))
-        assert ident.refered_as_in(id_env) == "os.path"
+        # ! Only for module-level or upper.
 
-        ident = PyIdent(module=["os"], mb_name=Just("os.path.join"))
-        assert ident.refered_as_in(id_env) == "os.path.join"
+        ident = PyIdent(module=["sys"], mb_name=Just("sys"))
+        assert ident.refered_as_in(id_env) == "sys"
+
+        ident = PyIdent(module=["django", "db", "models"], mb_name=Nothing())
+        assert ident.refered_as_in(id_env) == "models"
 
     def _test_PyIdent_mb_import_line(self):
         name_env = IdEnv(
-            # inner={
-            #     "os": PyIdent(module=["os"], mb_name=Just("os")),
-            #     "os.path": PyIdent(module=["os"], mb_name=Just("os.path")),
-            #     "os.path.join": PyIdent(module=["os"], mb_name=Just("os.path.join")),
-            # }
             inner={
                 "os": ["os", "os"],
                 "os.path": ["os", "os", "path"],
@@ -322,11 +309,6 @@ class _TestPyIdent:
 
         # ! Qualified names are not considered. PyIdent is for module-level item of upper.
 
-    def _test_PyIdent_mb_import_line(self):
-        ident = PyIdent(module=["os"], mb_name=Just("os"))
-
-        assert ident.mb_import_line(IdEnv({})) == Just("from os import os")
-
 
 @dataclass
 class PyDependecy:
@@ -338,15 +320,16 @@ class PyDependecy:
 class IdEnv:
     inner: Dict[str, Iterable[str]]
 
-    def __call__(self, name: str) -> str:
-        len = length(self.inner[name])
-        assert not isinstance(self.inner[name], str)
+    def fq_name_of_alias(self, alias: str) -> str:
+        len = length(self.inner[alias])
+
+        assert not isinstance(self.inner[alias], str)
         if len == 0:
-            raise ValueError(f"Name {name} is not defined in the environment.")
+            raise ValueError(f"Name {alias} is not defined in the environment.")
         elif len == 1:
-            return head(self.inner[name])
+            return head(self.inner[alias])
         else:
-            return ".".join(self.inner[name])
+            return ".".join(self.inner[alias])
 
     @staticmethod
     def from_source(src: str) -> "IdEnv":
@@ -362,10 +345,6 @@ class IdEnv:
         class Visitor(ast.NodeVisitor):
             def visit_Import(self, node):
                 for alias in node.names:
-                    # module = alias.name
-                    # env_map[alias.asname or alias.name] = PyIdent(
-                    #     module=[module], mb_name=Just(alias.name)
-                    # )
                     env_map[alias.asname or alias.name] = [alias.name]
 
             def visit_ImportFrom(self, node):
@@ -374,47 +353,29 @@ class IdEnv:
                         module_parts = []
                     case md:
                         module_parts = md.split(".")
-
-                # if "*" in [alias.name for alias in node.names]:
-                #     env_map[node.module] = PyIdent(
-                #         module=module_parts, mb_name=Just("*")
-                #     )
-
-                # else:
                 for alias in node.names:
-                    env_map[alias.asname or alias.name] = [alias.name]
-                    # qual_name = alias.name
-                    # env_map[alias.asname or alias.name] = PyIdent(
-                    #     # ! This name could be either module or item in the module.
-                    #     # ! There is no way to distinguish them.
-                    #     module=module_parts,
-                    #     mb_name=Just(qual_name),
-                    # )
+                    env_map[alias.asname or alias.name] = append(
+                        module_parts, [alias.name]
+                    )
 
             def visit_FunctionDef(self, node):
                 qual_name = node.name
-                # env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
                 env_map[qual_name] = [qual_name]
                 self.generic_visit(node)
 
             def visit_ClassDef(self, node):
                 qual_name = node.name
-                # env_map[qual_name] = PyIdent(module=[], mb_name=Just(qual_name))
                 env_map[qual_name] = [qual_name]
                 self.generic_visit(node)
 
             def visit_Assign(self, node):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        # env_map[target.id] = PyIdent(module=[], mb_name=Just(target.id))
                         env_map[target.id] = [target.id]
                 self.generic_visit(node)
 
             def visit_AnnAssign(self, node):
                 if isinstance(node.target, ast.Name):
-                    # env_map[node.target.id] = PyIdent(
-                    #     module=[], mb_name=Just(node.target.id)
-                    # )
                     env_map[node.target.id] = [node.target.id]
                 self.generic_visit(node)
 
@@ -441,12 +402,13 @@ other_var: int = 20
 """
         id_env = IdEnv.from_source(source_code)
 
-        assert id_env("os") == "os"
-        assert id_env("namedtuple") == "namedtuple"
-        assert id_env("my_function") == "my_function"
-        assert id_env("MyClass") == "MyClass"
-        assert id_env("my_var") == "my_var"
-        assert id_env("other_var") == "other_var"
+        assert id_env.fq_name_of_alias("os") == "os"
+        assert id_env.fq_name_of_alias("namedtuple") == "collections.namedtuple"
+        # todo Maybe I need to check if the name is defined in the module.
+        assert id_env.fq_name_of_alias("my_function") == "my_function"
+        assert id_env.fq_name_of_alias("MyClass") == "MyClass"
+        assert id_env.fq_name_of_alias("my_var") == "my_var"
+        assert id_env.fq_name_of_alias("other_var") == "other_var"
 
     def _test_from_source_(self):
         source_code = ""
@@ -458,7 +420,7 @@ other_var: int = 20
         source_code_ = mb_import_line.unwrap()
 
         imported_id_env = IdEnv.from_source(source_code_)
-        assert ident.refered_as_in(imported_id_env) == ".urls"
+        assert ident.refered_as_in(imported_id_env) == "urls"
 
 
 # Take depencies keys and return python idendifiers in the code
@@ -593,7 +555,9 @@ other_var: int = 20
     def _refer(ident: PyIdent) -> str:
         return ident.refered_as_in(imported_id_env)
 
-    assert _refer(ident_to_import_0) == "os.os" # os module is imported as os. Therefore, it is refered as os.os
+    assert (
+        _refer(ident_to_import_0) == "os.os"
+    )  # os module is imported as os. Therefore, it is refered as os.os
     assert _refer(ident_to_import_1) == "namedtuple"
     assert _refer(ident_to_import_2) == "my_function"
     print("imported_content: ", imported_content)
