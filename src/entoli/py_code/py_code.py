@@ -109,9 +109,7 @@ class PyIdent:
         return _relative_name_to(self.full_qual_name_parts(), other_parts)
 
     def refered_as_in(self, id_env: "IdEnv") -> str:
-        relevant_env = filter_map(
-            # lambda key_name_parts: if_else(snd(key_name_parts).includes(self), Just(key_name_parts), Nothing()),
-            # if relavent includes self
+        relevant_env_entries = filter_map(
             lambda key_id: if_else(
                 is_prefix_of(snd(key_id), self.full_qual_name_parts()),
                 Just(key_id),
@@ -120,16 +118,33 @@ class PyIdent:
             id_env.inner.items(),
         )
 
-        if length(relevant_env) == 0:
+        if length(relevant_env_entries) == 0:
             raise ValueError(f"No relevant env for {self}, not defined or included.")
-        elif length(relevant_env) > 1:
-            raise ValueError(
-                f"Multiple relevant env for {self}, {relevant_env}. Ambiguous."
+        elif length(relevant_env_entries) > 1:
+            # todo Refactor env as tree-like structure.
+            # raise ValueError(
+            #     f"Multiple relevant env for {self}, {relevant_env_entries}. Ambiguous."
+            # )
+
+            # For now sort by length of the name parts and take the longest one.
+            sorted_relevant_env_entries = sort_on(
+                lambda key_id: length(snd(key_id)), relevant_env_entries
             )
+
+            most_detailed_key, most_detailed_name_parts = head(
+                sorted_relevant_env_entries
+            )
+
+            if self.full_qual_name_parts() == most_detailed_name_parts:
+                return most_detailed_key
+            else:
+                return (
+                    most_detailed_key
+                    + "."
+                    + self.relative_name_to(most_detailed_name_parts).unwrap()
+                )
         else:
-            # relevent_key = fst(head(relevant_env))
-            # relevant_ident = snd(head(relevant_env))
-            relevent_key, relevant_name_parts = head(relevant_env)
+            relevent_key, relevant_name_parts = head(relevant_env_entries)
 
             if (
                 self.full_qual_name_parts() == relevant_name_parts
@@ -314,11 +329,12 @@ class _TestPyIdent:
 class PyDependecy:
     ident: PyIdent
     is_strict: bool = True
-    is_external: bool = (
+    external: bool = (
         False  # External dependencies are not checked for existence in the environment.
     )
 
 
+# todo It has to be some kind of a tree structure.
 @dataclass
 class IdEnv:
     inner: Dict[str, Iterable[str]]
@@ -451,37 +467,37 @@ class PyCode:
         )
 
     def internal_deps(self) -> Iterable[PyDependecy]:
-        return map(lambda d: d, self.deps.values())
+        return filter_map(
+            lambda d: if_else(not d.external, Just(d), Nothing()), self.deps.values()
+        )
 
     def external_deps(self) -> Iterable[PyDependecy]:
         return filter_map(
-            lambda d: if_else(d.is_external, Just(d), Nothing()),
+            lambda d: if_else(d.external, Just(d), Nothing()),
             self.deps.values(),
         )
 
     def strict_internal_deps(self) -> Iterable[PyDependecy]:
         return filter_map(
-            lambda d: if_else(d.is_strict and not d.is_external, Just(d), Nothing()),
+            lambda d: if_else(d.is_strict and not d.external, Just(d), Nothing()),
             self.deps.values(),
         )
 
     def weak_internal_deps(self) -> Iterable[PyDependecy]:
         return filter_map(
-            lambda d: if_else(
-                not d.is_strict and not d.is_external, Just(d), Nothing()
-            ),
+            lambda d: if_else(not d.is_strict and not d.external, Just(d), Nothing()),
             self.deps.values(),
         )
 
     def strict_external_deps(self) -> Iterable[PyDependecy]:
         return filter_map(
-            lambda d: if_else(d.is_strict and d.is_external, Just(d), Nothing()),
+            lambda d: if_else(d.is_strict and d.external, Just(d), Nothing()),
             self.deps.values(),
         )
 
     def weak_external_deps(self) -> Iterable[PyDependecy]:
         return filter_map(
-            lambda d: if_else(not d.is_strict and d.is_external, Just(d), Nothing()),
+            lambda d: if_else(not d.is_strict and d.external, Just(d), Nothing()),
             self.deps.values(),
         )
 
@@ -727,7 +743,7 @@ def _test_are_valid_codes():
     assert not _all_idents_unique(duplicated_codes)
     assert _no_strict_circular_deps(duplicated_codes)
     # Not checking for duplicated idents. Or I need to mark some dependencies as external.
-    # Now external dependencies concepts are not implemented. 
+    # Now external dependencies concepts are not implemented.
     # Duplicated idents are not allowed.
     assert not _are_valid_codes(duplicated_codes)
 
@@ -913,14 +929,30 @@ def write_codes(dir_path: Path, codes: Iterable[PyCode]) -> Io[None]:
     match mb_ordered_codes(codes):
         case Nothing():
             if not _all_interal_deps_present(codes):
-                deps = unique(concat_map(lambda c: c.deps.values(), codes))
-                for dep in deps:
-                    if not elem(dep.ident, map(lambda c: c.ident, codes)):
-                        print(f"Dependency not present: {dep.ident}")
+                internal_deps = unique(concat_map(lambda c: c.internal_deps(), codes))
 
-                raise ValueError("Some dependencies are not present")
+                missing_internal_deps = filter(
+                    lambda dep: not elem(dep.ident, map(lambda c: c.ident, codes)),
+                    internal_deps,
+                )
+
+                raise ValueError(
+                    f"Internal dependencies are not present: {missing_internal_deps}"
+                )
+
+            elif not _all_idents_unique(codes):
+                ident_counts = map(
+                    lambda id: (id, length(filter(lambda c: c.ident == id, codes))),
+                    map(lambda c: c.ident, codes),
+                )
+                duplicated_idents = filter(
+                    lambda id_count: snd(id_count) > 1, ident_counts
+                )
+
+                raise ValueError(f"Identifiers are not unique: {duplicated_idents}")
+
             elif not _no_strict_circular_deps(codes):
-                raise ValueError("Codes are not valid")
+                raise ValueError("Found circular dependencies")
 
             raise ValueError("Codes are not valid")
         case Just(ordered_codes):

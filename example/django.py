@@ -160,6 +160,9 @@ main = (
                     "pip install django",
                     "django-admin --version",
                     "django-admin startproject auto_project",
+                    "cd auto_project",
+                    "python manage.py startapp auto_app_0",
+                    "python manage.py startapp auto_app_1",
                 ]
             ),
         )
@@ -175,9 +178,8 @@ main = (
             flake_path,
             unlines(
                 [
+                    # Pwd is flake_path, so we need to cd into auto_project
                     "cd auto_project",
-                    "python manage.py startapp auto_app_0",
-                    "python manage.py startapp auto_app_1",
                     "python manage.py makemigrations",
                     "python manage.py migrate",
                     "export DJANGO_SUPERUSER_USERNAME=admin",

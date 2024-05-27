@@ -1,8 +1,9 @@
+from calendar import c
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Protocol, List
 
-from entoli.prelude import append, concat, filter_map, map, unlines
+from entoli.prelude import append, concat, filter_map, map, unique, unlines
 from entoli.py_code.py_code import (
     PyCode,
     PyDependecy,
@@ -45,6 +46,7 @@ class BooleanField(DjangoField):
                     module=["django", "db", "models"],
                     mb_name=Just("BooleanField"),
                 ),
+                external=True,
             )
         }
 
@@ -77,6 +79,7 @@ class CharField(DjangoField):
                     module=["django", "db", "models"],
                     mb_name=Just("CharField"),
                 ),
+                external=True,
             )
         }
 
@@ -89,16 +92,27 @@ class DjangoModel:
     def deps(self) -> Dict[str, PyDependecy]:
         return {
             "django_model": PyDependecy(
-                ident=PyIdent(module=["django", "db", "models"], mb_name=Nothing())
+                ident=PyIdent(module=["django", "db", "models"], mb_name=Nothing()),
+                external=True,
             ),
         }
 
     def to_py_codes(self, project_name: str, app_name: str) -> Iterable[PyCode]:
         definition_deps = {
             "django_model": PyDependecy(
-                ident=PyIdent(module=["django", "db", "models"], mb_name=Nothing())
+                ident=PyIdent(module=["django", "db", "models"], mb_name=Nothing()),
+                external=True,
             ),
         }
+
+        field_deps = {
+            k: v
+            for k, v in unique(
+                concat(map(lambda field: field.deps().items(), self.fields.values()))
+            )
+        }
+
+        deps = {**definition_deps, **field_deps}
 
         def _definition_code(refer: ReferEnv, imported_content) -> str:
             def_lines = unlines(
@@ -119,12 +133,13 @@ class DjangoModel:
                 mb_name=Just(self.name),
             ),
             code=_definition_code,
-            deps=definition_deps,
+            deps=deps,
         )
 
         model_from_deps = {
             "django_forms": PyDependecy(
                 ident=PyIdent(module=["django", "forms"], mb_name=Nothing()),
+                external=True,
             ),
             "self_model": PyDependecy(
                 ident=PyIdent(
@@ -137,7 +152,7 @@ class DjangoModel:
         def _model_form_code(refer: ReferEnv, imported_content: str) -> str:
             model_form_lines = unlines(
                 [
-                    f"class {self.name}Form({refer('django_form')}.ModelForm):",
+                    f"class {self.name}Form({refer('django_forms')}.ModelForm):",
                     "    class Meta:",
                     f"        model = {refer('self_model')}",
                     "        fields = '__all__'",
@@ -157,7 +172,8 @@ class DjangoModel:
 
         admin_deps = {
             "admin": PyDependecy(
-                ident=PyIdent(module=["django", "contrib", "admin"], mb_name=Nothing())
+                ident=PyIdent(module=["django", "contrib", "admin"], mb_name=Nothing()),
+                external=True,
             ),
             "self_model": PyDependecy(
                 ident=PyIdent(
@@ -179,7 +195,7 @@ class DjangoModel:
         admin = PyCode(
             ident=PyIdent(
                 module=[project_name, app_name, "admin"],
-                mb_name=Just("admin"),
+                mb_name=Just(f"{self.name}Admin"),
             ),
             code=_admin_code,
             deps=admin_deps,
@@ -196,19 +212,22 @@ class DjangoApp:
     def to_py_codes(self, project_name: str) -> Iterable[PyCode]:
         installed_apps_deps = {}
 
-        def _installed_apps_code(refer: ReferEnv, imported_content: str) -> str:
-            installed_apps_lines = f"INSTALLED_APPS += ['{self.name}']"
+        # ! Installed apps should not be added by individual apps
+        # ! Instead, they should be added by the project
 
-            return f"{imported_content}\n{installed_apps_lines}"
+        # def _installed_apps_code(refer: ReferEnv, imported_content: str) -> str:
+        #     installed_apps_lines = f"INSTALLED_APPS += ['{self.name}']"
 
-        installed_apps = PyCode(
-            ident=PyIdent(
-                module=[project_name],
-                mb_name=Just("settings"),
-            ),
-            code=_installed_apps_code,
-            deps=installed_apps_deps,
-        )
+        #     return f"{imported_content}\n{installed_apps_lines}"
+
+        # installed_apps = PyCode(
+        #     ident=PyIdent(
+        #         module=[project_name],
+        #         mb_name=Just("settings"),
+        #     ),
+        #     code=_installed_apps_code,
+        #     deps=installed_apps_deps,
+        # )
 
         app_urls = PyCode(
             ident=PyIdent(
@@ -222,6 +241,7 @@ class DjangoApp:
         add_to_project_urls_deps = {
             "django_url": PyDependecy(
                 ident=PyIdent(module=["django", "urls"], mb_name=Nothing()),
+                external=True,
             ),
             "self_urls": PyDependecy(
                 ident=PyIdent(
@@ -231,23 +251,26 @@ class DjangoApp:
             ),
         }
 
-        def _add_to_project_urls_code(refer: ReferEnv, imported_content: str) -> str:
-            add_to_project_urls_lines = unlines(
-                [
-                    f"path('{self.name}/', include('{refer('self_urls')}')),",
-                ]
-            )
+        # ! Add to project urls should not be added by individual apps
+        # ! Instead, they should be added by the project
 
-            return f"{imported_content}\n{add_to_project_urls_lines}"
+        # def _add_to_project_urls_code(refer: ReferEnv, imported_content: str) -> str:
+        #     add_to_project_urls_lines = unlines(
+        #         [
+        #             f"path('{self.name}/', include('{refer('self_urls')}')),",
+        #         ]
+        #     )
 
-        add_to_project_urls = PyCode(
-            ident=PyIdent(
-                module=[project_name, "urls"],
-                mb_name=Just("urlpatterns"),
-            ),
-            code=_add_to_project_urls_code,
-            deps=add_to_project_urls_deps,
-        )
+        #     return f"{imported_content}\n{add_to_project_urls_lines}"
+
+        # add_to_project_urls = PyCode(
+        #     ident=PyIdent(
+        #         module=[project_name, "urls"],
+        #         mb_name=Just("urlpatterns"),
+        #     ),
+        #     code=_add_to_project_urls_code,
+        #     deps=add_to_project_urls_deps,
+        # )
 
         model_codes = concat(
             map(
@@ -256,7 +279,9 @@ class DjangoApp:
             )
         )
 
-        return [installed_apps, app_urls, add_to_project_urls, *model_codes]
+        # return [installed_apps, app_urls, add_to_project_urls, *model_codes]
+        # return [app_urls, add_to_project_urls, *model_codes]
+        return [app_urls, *model_codes]
 
 
 _django_default_codes = [
@@ -308,7 +333,44 @@ class DjangoProject:
             )
         )
 
-        return app_codes
+        installed_apps = PyCode(
+            ident=PyIdent(
+                module=[self.name],
+                mb_name=Just("settings"),
+            ),
+            code=lambda refer, content: content
+            + "\nINSTALLED_APPS += [\n"
+            + unlines(
+                map(
+                    lambda app: f"    '{app.name}'",
+                    self.apps,
+                )
+            )
+            + "\n]",
+            deps={},
+        )
+
+        # todo Add app.names to deps
+        project_urls = PyCode(
+            ident=PyIdent(
+                module=[self.name, "urls"],
+                mb_name=Nothing(),
+            ),
+            code=lambda refer, content: content
+            + "\nurlpatterns = [\n"
+            + unlines(
+                map(
+                    lambda app: f"    path('{app.name}/', include('{app.name}.urls')),",
+                    self.apps,
+                )
+            )
+            + "\n]",
+            deps={},
+        )
+
+        # return app_codes
+        # return concat([app_codes, [installed_apps]])
+        return concat([app_codes, [installed_apps, project_urls]])
 
     def write(self, dir_path: Path):
         codes = append(_django_default_codes, self.to_py_codes())
