@@ -506,7 +506,7 @@ class _TestPyCode:
         }
         code = PyCode(ident=ident, code=lambda _, __: "", deps=deps)
 
-        assert code.strict_internal_deps() == [ident]
+        assert code.strict_internal_deps() == [PyDependecy(ident=ident, is_strict=True)]
 
     def test_weak_deps(self):
         ident = PyIdent(module=["os"], mb_name=Just("os"))
@@ -516,7 +516,8 @@ class _TestPyCode:
         }
         code = PyCode(ident=ident, code=lambda _, __: "", deps=deps)
 
-        assert code.weak_internal_deps() == [ident]
+        # assert code.weak_internal_deps() == [ident]
+        assert code.weak_internal_deps() == [PyDependecy(ident=ident, is_strict=False)]
 
     def test_code_to_content(self):
         # ident =
@@ -726,7 +727,9 @@ def _test_are_valid_codes():
     assert not _all_idents_unique(duplicated_codes)
     assert _no_strict_circular_deps(duplicated_codes)
     # Not checking for duplicated idents. Or I need to mark some dependencies as external.
-    assert _are_valid_codes(duplicated_codes)
+    # Now external dependencies concepts are not implemented. 
+    # Duplicated idents are not allowed.
+    assert not _are_valid_codes(duplicated_codes)
 
     # Introduce a circular dependency to check for invalid codes
     custom_codes[0].deps["join"] = PyDependecy(ident=custom_idents[1], is_strict=True)
