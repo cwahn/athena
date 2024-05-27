@@ -22,7 +22,7 @@ from entoli.py_code.py_code import (
     PyDependecy,
     write_code,
     write_codes,
-    _all_deps_present,
+    _all_interal_deps_present,
     _all_idents_unique,
     _no_strict_circular_deps,
 )
@@ -182,7 +182,7 @@ codes = [
 ]
 
 assert _all_idents_unique(codes)
-assert _all_deps_present(codes)
+assert _all_interal_deps_present(codes)
 assert _no_strict_circular_deps(codes)
 
 main = write_codes(

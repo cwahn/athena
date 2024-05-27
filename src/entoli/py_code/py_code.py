@@ -314,6 +314,9 @@ class _TestPyIdent:
 class PyDependecy:
     ident: PyIdent
     is_strict: bool = True
+    is_external: bool = (
+        False  # External dependencies are not checked for existence in the environment.
+    )
 
 
 @dataclass
@@ -436,15 +439,49 @@ class PyCode:
     def rel_module_path(self) -> Path:
         return self.ident.rel_module_path()
 
-    def strict_deps(self) -> Iterable[PyIdent]:
+    def strict_deps(self) -> Iterable[PyDependecy]:
         return filter_map(
-            lambda d: if_else(d.is_strict, Just(d.ident), Nothing()),
+            lambda d: if_else(d.is_strict, Just(d), Nothing()), self.deps.values()
+        )
+
+    def weak_deps(self) -> Iterable[PyDependecy]:
+        return filter_map(
+            lambda d: if_else(not d.is_strict, Just(d), Nothing()),
             self.deps.values(),
         )
 
-    def weak_deps(self) -> Iterable[PyIdent]:
+    def internal_deps(self) -> Iterable[PyDependecy]:
+        return map(lambda d: d, self.deps.values())
+
+    def external_deps(self) -> Iterable[PyDependecy]:
         return filter_map(
-            lambda d: if_else(not d.is_strict, Just(d.ident), Nothing()),
+            lambda d: if_else(d.is_external, Just(d), Nothing()),
+            self.deps.values(),
+        )
+
+    def strict_internal_deps(self) -> Iterable[PyDependecy]:
+        return filter_map(
+            lambda d: if_else(d.is_strict and not d.is_external, Just(d), Nothing()),
+            self.deps.values(),
+        )
+
+    def weak_internal_deps(self) -> Iterable[PyDependecy]:
+        return filter_map(
+            lambda d: if_else(
+                not d.is_strict and not d.is_external, Just(d), Nothing()
+            ),
+            self.deps.values(),
+        )
+
+    def strict_external_deps(self) -> Iterable[PyDependecy]:
+        return filter_map(
+            lambda d: if_else(d.is_strict and d.is_external, Just(d), Nothing()),
+            self.deps.values(),
+        )
+
+    def weak_external_deps(self) -> Iterable[PyDependecy]:
+        return filter_map(
+            lambda d: if_else(not d.is_strict and d.is_external, Just(d), Nothing()),
             self.deps.values(),
         )
 
@@ -469,7 +506,7 @@ class _TestPyCode:
         }
         code = PyCode(ident=ident, code=lambda _, __: "", deps=deps)
 
-        assert code.strict_deps() == [ident]
+        assert code.strict_internal_deps() == [ident]
 
     def test_weak_deps(self):
         ident = PyIdent(module=["os"], mb_name=Just("os"))
@@ -479,7 +516,7 @@ class _TestPyCode:
         }
         code = PyCode(ident=ident, code=lambda _, __: "", deps=deps)
 
-        assert code.weak_deps() == [ident]
+        assert code.weak_internal_deps() == [ident]
 
     def test_code_to_content(self):
         # ident =
@@ -586,15 +623,11 @@ def _all_idents_unique(codes: Iterable[PyCode]) -> bool:
         return True
 
 
-def _all_deps_present(codes: Iterable[PyCode]) -> bool:
-    present_idents = map(lambda c: c.ident, codes)
-    code_depss = map(lambda c: c.deps.values(), codes)
-    all_deps = unique(concat(code_depss))
+def _all_interal_deps_present(codes: Iterable[PyCode]) -> bool:
+    defined_idents = map(lambda c: c.ident, codes)
+    internal_deps = unique(concat_map(lambda c: c.internal_deps(), codes))
 
-    def _is_present(acc: bool, dep: PyDependecy) -> bool:
-        return acc and elem(dep.ident, present_idents)
-
-    return foldl(_is_present, True, all_deps)
+    return all(map(lambda d: elem(d.ident, defined_idents), internal_deps))
 
 
 def _no_strict_circular_deps(codes: Iterable[PyCode]) -> bool:
@@ -605,7 +638,7 @@ def _no_strict_circular_deps(codes: Iterable[PyCode]) -> bool:
             return all(
                 not_in_circle(concat([visited, [code.ident]]), c)
                 for c in codes
-                if c.ident in code.strict_deps()
+                if c.ident in map(lambda d: d.ident, code.strict_internal_deps())
             )
 
     return all(map(lambda c: not_in_circle([], c), codes))
@@ -613,9 +646,9 @@ def _no_strict_circular_deps(codes: Iterable[PyCode]) -> bool:
 
 def _are_valid_codes(codes: Iterable[PyCode]) -> bool:
     return (
-        # _all_idents_unique(codes)
-        # and
-        _all_deps_present(codes) and _no_strict_circular_deps(codes)
+        _all_idents_unique(codes)
+        and _all_interal_deps_present(codes)
+        and _no_strict_circular_deps(codes)
     )
 
 
@@ -672,7 +705,7 @@ def _test_are_valid_codes():
     codes = default_codes + custom_codes
 
     # Assertions to check validity
-    assert _all_deps_present(codes)
+    assert _all_interal_deps_present(codes)
     assert _all_idents_unique(codes)
     assert _no_strict_circular_deps(codes)
     assert _are_valid_codes(codes)
@@ -680,7 +713,7 @@ def _test_are_valid_codes():
     # Add missing dependency to custom codes
     missing_ident = PyIdent(module=["missing"], mb_name=Just("missing"))
     custom_codes[0].deps["missing"] = PyDependecy(ident=missing_ident, is_strict=True)
-    assert not _all_deps_present(codes)
+    assert not _all_interal_deps_present(codes)
     assert _all_idents_unique(codes)
     assert _no_strict_circular_deps(codes)
     assert not _are_valid_codes(codes)
@@ -689,15 +722,15 @@ def _test_are_valid_codes():
     del custom_codes[0].deps["missing"]
     # Add duplicated ident
     duplicated_codes = codes + custom_codes
-    assert _all_deps_present(duplicated_codes)
+    assert _all_interal_deps_present(duplicated_codes)
     assert not _all_idents_unique(duplicated_codes)
     assert _no_strict_circular_deps(duplicated_codes)
     # Not checking for duplicated idents. Or I need to mark some dependencies as external.
-    assert _are_valid_codes(duplicated_codes) 
+    assert _are_valid_codes(duplicated_codes)
 
     # Introduce a circular dependency to check for invalid codes
     custom_codes[0].deps["join"] = PyDependecy(ident=custom_idents[1], is_strict=True)
-    assert _all_deps_present(codes)
+    assert _all_interal_deps_present(codes)
     assert _all_idents_unique(codes)
     assert not _no_strict_circular_deps(codes)
     assert not _are_valid_codes(codes)
@@ -876,27 +909,7 @@ def write_code(dir_path: Path, code: PyCode) -> Io[None]:
 def write_codes(dir_path: Path, codes: Iterable[PyCode]) -> Io[None]:
     match mb_ordered_codes(codes):
         case Nothing():
-            # if not _all_idents_unique(codes):
-            #     idents: Iterable[PyIdent] = map(lambda c: c.ident, codes)
-
-            #     for_each(
-            #         lambda ident: body(
-            #             degeneracy := length(filter(lambda i: i == ident, idents)),
-            #             if_else(
-            #                 degeneracy > 1,
-            #                 print(
-            #                     f"Duplicated ident: {ident}, degeneracy: {degeneracy}"
-            #                 ),
-            #                 None,
-            #             ),
-            #         ),
-            #         idents,
-            #     )
-
-            #     raise ValueError("Idents are not unique")
-            # el
-
-            if not _all_deps_present(codes):
+            if not _all_interal_deps_present(codes):
                 deps = unique(concat_map(lambda c: c.deps.values(), codes))
                 for dep in deps:
                     if not elem(dep.ident, map(lambda c: c.ident, codes)):
