@@ -119,7 +119,7 @@ class DjangoModel:
                 [
                     f"class {self.name}({refer('django_model')}.Model):",
                     *[
-                        f"    {field_name}: {field.to_py_snippet(refer, field_name)}"
+                        f"    {field_name} = {field.to_py_snippet(refer, field_name)}"
                         for field_name, field in self.fields.items()
                     ],
                 ]
@@ -284,40 +284,41 @@ class DjangoApp:
         return [app_urls, *model_codes]
 
 
-_django_default_codes = [
-    PyCode(
-        ident=PyIdent(
-            module=["django", "db", "models"],
-            mb_name=Nothing(),
-        ),
-        code=lambda refer, content: content,
-        deps={},
-    ),
-    PyCode(
-        ident=PyIdent(
-            module=["django", "forms"],
-            mb_name=Nothing(),
-        ),
-        code=lambda refer, content: content,
-        deps={},
-    ),
-    PyCode(
-        ident=PyIdent(
-            module=["django", "contrib", "admin"],
-            mb_name=Nothing(),
-        ),
-        code=lambda refer, content: content,
-        deps={},
-    ),
-    PyCode(
-        ident=PyIdent(
-            module=["django", "urls"],
-            mb_name=Nothing(),
-        ),
-        code=lambda refer, content: content,
-        deps={},
-    ),
-]
+# ! No longer needed, as external dependencies will not get checked
+# _django_default_codes = [
+#     PyCode(
+#         ident=PyIdent(
+#             module=["django", "db", "models"],
+#             mb_name=Nothing(),
+#         ),
+#         code=lambda refer, content: content,
+#         deps={},
+#     ),
+#     PyCode(
+#         ident=PyIdent(
+#             module=["django", "forms"],
+#             mb_name=Nothing(),
+#         ),
+#         code=lambda refer, content: content,
+#         deps={},
+#     ),
+#     PyCode(
+#         ident=PyIdent(
+#             module=["django", "contrib", "admin"],
+#             mb_name=Nothing(),
+#         ),
+#         code=lambda refer, content: content,
+#         deps={},
+#     ),
+#     PyCode(
+#         ident=PyIdent(
+#             module=["django", "urls"],
+#             mb_name=Nothing(),
+#         ),
+#         code=lambda refer, content: content,
+#         deps={},
+#     ),
+# ]
 
 
 @dataclass
@@ -335,14 +336,14 @@ class DjangoProject:
 
         installed_apps = PyCode(
             ident=PyIdent(
-                module=[self.name],
-                mb_name=Just("settings"),
+                module=[self.name, self.name, "settings"],
+                mb_name=Just("INSTALLED_APPS"),
             ),
             code=lambda refer, content: content
             + "\nINSTALLED_APPS += [\n"
             + unlines(
                 map(
-                    lambda app: f"    '{app.name}'",
+                    lambda app: f"    '{app.name}',",
                     self.apps,
                 )
             )
@@ -353,11 +354,11 @@ class DjangoProject:
         # todo Add app.names to deps
         project_urls = PyCode(
             ident=PyIdent(
-                module=[self.name, "urls"],
+                module=[self.name, self.name, "urls"],
                 mb_name=Nothing(),
             ),
             code=lambda refer, content: content
-            + "\nurlpatterns = [\n"
+            + "\nurlpatterns += [\n"
             + unlines(
                 map(
                     lambda app: f"    path('{app.name}/', include('{app.name}.urls')),",
@@ -365,7 +366,12 @@ class DjangoProject:
                 )
             )
             + "\n]",
-            deps={},
+            deps={
+                "django_url": PyDependecy(
+                    ident=PyIdent(module=["django", "urls"], mb_name=Just("include")),
+                    external=True,
+                )
+            },
         )
 
         # return app_codes
@@ -373,6 +379,7 @@ class DjangoProject:
         return concat([app_codes, [installed_apps, project_urls]])
 
     def write(self, dir_path: Path):
-        codes = append(_django_default_codes, self.to_py_codes())
+        # codes = append(_django_default_codes, self.to_py_codes())
+        codes = self.to_py_codes()
 
         return write_codes(dir_path, codes)
