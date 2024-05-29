@@ -7,7 +7,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from entoli.base.io import put_strln, get_str
+from entoli.prelude import put_strln, get_str
 
 
 @functools.cache

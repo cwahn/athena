@@ -7,8 +7,9 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from entoli.base.io import Io, put_strln, get_str
+from entoli.base.io import Io
 from entoli.base.control import delay_for, loop
+from entoli.prelude import put_strln, get_str
 
 
 ask_and_sleep = (

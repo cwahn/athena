@@ -18,7 +18,8 @@ from entoli.process import (
     terminate_process,
     wait_for_process,
 )
-from entoli.base.io import Io, put_strln
+from entoli.base.io import Io
+from entoli.prelude import put_strln
 
 
 def _main(tpl) -> Io[None]:

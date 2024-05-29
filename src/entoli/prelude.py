@@ -10,9 +10,6 @@ from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
 from entoli.base.typeclass import Ord
 
-from rich.traceback import install
-
-install(show_locals=True)
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")
