@@ -924,8 +924,47 @@ def write_code(dir_path: Path, code: PyCode) -> Io[None]:
         )
     )
 
+def _test_write_code():
+    code =         project_urls = PyCode(
+            # ident=PyIdent(
+            #     module=[self.name, self.name, "urls"],
+            #     mb_name=Nothing(),
+            # ),
+            # code=lambda refer, content: content
+            # + "\nurlpatterns += [\n"
+            # + unlines(
+            #     map(
+            #         # lambda app: f"    path('{app.name}/', include('{app.name}.urls')),",
+            #         lambda app: f"    path('{app.name}/', include('{refer(app.name)}.urls')),",
+            #         self.apps,
+            #     )
+            # )
+            # + "\n]",
+            # deps={
+            #     "django_url": PyDependecy(
+            #         ident=PyIdent(module=["django", "urls"], mb_name=Just("include")),
+            #         external=True, 
+            #     ),
+            #     **{
+            #         app.name: PyDependecy(
+            #             ident=PyIdent(
+            #                 module=[app.name, "urls"],
+            #                 mb_name=Nothing(),
+            #             ),
+            #             external=True,
+            #         )
+            #         for app in self.apps
+            #     },
+            # },
+        )
+    
+    code = PyCode(
+        ident = PyIdent("some_module", "some_function", "urls"),
+        mb_name = Nothing(),
+    )
 
-def write_codes(dir_path: Path, codes: Iterable[PyCode]) -> Io[None]:
+
+def write_package(dir_path: Path, codes: Iterable[PyCode]) -> Io[None]:
     match mb_ordered_codes(codes):
         case Nothing():
             if not _all_interal_deps_present(codes):
