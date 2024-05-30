@@ -1,11 +1,21 @@
-include AUTHORS.rst
-include CONTRIBUTING.rst
-include HISTORY.rst
 include LICENSE
-include README.rst
+include README.md
+include requirements_dev.txt
+include pyproject.toml
+include tox.ini
+include ruff.toml
 
-recursive-include tests *
-recursive-exclude * __pycache__
-recursive-exclude * *.py[co]
+# Include all Python files in the example directory
+recursive-include example *.py
 
-recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
+# Include all files in the src/entoli directory
+recursive-include src/entoli *
+
+# Exclude all __pycache__ directories
+global-exclude __pycache__
+
+# Exclude all .pyc files
+global-exclude *.py[cod]
+
+# Include build files in example/build
+recursive-include example/build *
