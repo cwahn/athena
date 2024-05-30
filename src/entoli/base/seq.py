@@ -88,6 +88,13 @@ class Seq(Generic[_A], Sequence):
     def __deepcopy__(self, memo) -> "Seq[_A]":
         return Seq(self.f, self._cached_list)
 
+    def __reversed__(self) -> Iterator[_A]:
+        if self._cached_list is not None:
+            return reversed(self._cached_list)
+        else:
+            self._cached_list = list(self.f())
+            return reversed(self._cached_list)
+
 
 class _TestSeq:
     def _test_as_bool(self):

@@ -1,5 +1,6 @@
 import builtins
 import json
+from operator import le
 import re
 from typing import Any, List, Tuple, TypeVar, Iterable, Callable, Optional, Iterator
 import functools
@@ -273,7 +274,6 @@ def _test_length():
 
 
 def reverse(xs: Iterable[_A]) -> Iterable[_A]:
-    # return Seq(lambda: iter(reversed(list(xs))))
     return Seq(lambda: reversed(list(xs)))
 
 
@@ -838,9 +838,10 @@ def _test_sort_on():
 
 
 def is_prefix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
-    xs_list = list(xs)
-    ys_list = list(ys)
-    return xs_list == ys_list[: len(xs_list)]
+    if length(xs) > length(ys):
+        return False
+    else:
+        return all(x == y for x, y in builtins.zip(xs, ys))
 
 
 def _test_is_prefix_of():
@@ -855,14 +856,13 @@ def _test_is_prefix_of():
 
 
 def is_suffix_of(xs: Iterable[_A], ys: Iterable[_A]) -> bool:
-    xs_list = list(xs)
-    ys_list = list(ys)
-
-    if not xs_list:
+    if not xs:
         return True
-    elif len(xs_list) > len(ys_list):
+    elif length(xs) > length(ys):
         return False
     else:
+        xs_list = list(xs)
+        ys_list = list(ys)
         return xs_list == ys_list[-len(xs_list) :]
 
 
