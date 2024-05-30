@@ -627,6 +627,44 @@ def _test_group():
     assert group([1, 1, 2, 2, 1]) == [[1, 1], [2, 2], [1]]
 
 
+def group_by(f: Callable[[_A], _B], xs: Iterable[_A]) -> Iterable[Iterable[_A]]:
+    def _group_by():
+        it = iter(xs)
+        try:
+            prev = next(it)
+            prev_key = f(prev)
+            acc = [prev]
+            for curr in it:
+                curr_key = f(curr)
+                if curr_key == prev_key:
+                    acc.append(curr)
+                else:
+                    yield acc
+                    acc = [curr]
+                    prev_key = curr_key
+            yield acc
+        except StopIteration:
+            return
+
+    return Seq(_group_by)
+
+
+def _test_group_by():
+    assert group_by(lambda x: x, []) == []
+    assert group_by(lambda x: x, [1]) == [[1]]
+    assert group_by(lambda x: x, [1, 1]) == [[1, 1]]
+    assert group_by(lambda x: x, [1, 2]) == [[1], [2]]
+    assert group_by(lambda x: x, [1, 1, 2, 2]) == [[1, 1], [2, 2]]
+    assert group_by(lambda x: x, [1, 1, 2, 2, 1]) == [[1, 1], [2, 2], [1]]
+
+    assert group_by(lambda x: x % 2, []) == []
+    assert group_by(lambda x: x % 2, [1]) == [[1]]
+    assert group_by(lambda x: x % 2, [1, 1]) == [[1, 1]]
+    assert group_by(lambda x: x % 2, [1, 2]) == [[1], [2]]
+    assert group_by(lambda x: x % 2, [1, 2, 3]) == [[1], [2], [3]]
+    assert group_by(lambda x: x % 2, [1, 2, 2]) == [[1], [2, 2]]
+
+
 def elem_index(x: _A, xs: Iterable[_A]) -> Maybe[int]:
     for i, y in enumerate(xs):
         if x == y:
