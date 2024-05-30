@@ -457,11 +457,6 @@ def _test_lookup():
 # Zipping and unzipping lists
 
 
-# # Variadic version of zip
-# def zip(*xss: Iterable[_A]) -> Iterable[Tuple[_A, ...]]:
-#     return Seq(lambda: builtins.zip(*xss))
-
-
 def zip(xs: Iterable[_A], ys: Iterable[_B]) -> Iterable[Tuple[_A, _B]]:
     return Seq(lambda: builtins.zip(xs, ys))
 
@@ -472,7 +467,6 @@ def _test_zip():
     assert zip([], [1]) == []
     assert zip([1], [2]) == [(1, 2)]
     assert zip([1, 2], [3, 4]) == [(1, 3), (2, 4)]
-    # assert zip([1, 2], [3, 4], [5, 6]) == [(1, 3, 5), (2, 4, 6)]
 
 
 def zip_with(
@@ -588,6 +582,18 @@ def _test_filter_map():
     assert filter_map(lambda x: Just(x + 1), [1]) == [2]
     assert filter_map(lambda x: Just(x + 1), [1, 2]) == [2, 3]
     assert filter_map(lambda x: Nothing(), [1, 2]) == []
+
+def elem_index(x: _A, xs: Iterable[_A]) -> Maybe[int]:
+    for i, y in enumerate(xs):
+        if x == y:
+            return Just(i)
+    return Nothing()
+
+def _test_elem_index():
+    assert elem_index(1, []) == Nothing()
+    assert elem_index(1, [1]) == Just(0)
+    assert elem_index(1, [2]) == Nothing()
+    assert elem_index(1, [2, 1]) == Just(1)
 
 
 def find(f: Callable[[_A], bool], xs: Iterable[_A]) -> Maybe[_A]:
