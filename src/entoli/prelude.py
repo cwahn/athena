@@ -598,6 +598,31 @@ def _test_partition():
     assert partition(lambda x: x < 3, [1, 2, 3]) == ([1, 2], [3])
 
 
+def chunks_of(n: int, xs: Iterable[_A]) -> Iterable[Iterable[_A]]:
+    def _chunk():
+        it = iter(xs)
+        while True:
+            acc = []
+            for _ in range(n):
+                try:
+                    acc.append(next(it))
+                except StopIteration:
+                    break
+            if not acc:
+                break
+            yield acc
+
+    return Seq(_chunk)
+
+
+def _test_chunks_of():
+    assert chunks_of(1, []) == []
+    assert chunks_of(1, [1]) == [[1]]
+    assert chunks_of(1, [1, 2]) == [[1], [2]]
+    assert chunks_of(2, [1, 2, 3]) == [[1, 2], [3]]
+    assert chunks_of(2, [1, 2, 3, 4]) == [[1, 2], [3, 4]]
+
+
 def group(xs: Iterable[_A]) -> Iterable[Iterable[_A]]:
     def _group():
         it = iter(xs)
