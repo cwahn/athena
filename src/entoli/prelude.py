@@ -1,5 +1,6 @@
 import builtins
 import json
+import re
 from typing import Any, List, Tuple, TypeVar, Iterable, Callable, Optional, Iterator
 import functools
 
@@ -583,11 +584,55 @@ def _test_filter_map():
     assert filter_map(lambda x: Just(x + 1), [1, 2]) == [2, 3]
     assert filter_map(lambda x: Nothing(), [1, 2]) == []
 
+
+def partition(
+    f: Callable[[_A], bool], xs: Iterable[_A]
+) -> Tuple[Iterable[_A], Iterable[_A]]:
+    return filter(f, xs), filter(lambda x: not f(x), xs)
+
+
+def _test_partition():
+    assert partition(lambda x: x < 3, []) == ([], [])
+    assert partition(lambda x: x < 3, [1]) == ([1], [])
+    assert partition(lambda x: x < 3, [1, 2]) == ([1, 2], [])
+    assert partition(lambda x: x < 3, [1, 2, 3]) == ([1, 2], [3])
+
+
+def group(xs: Iterable[_A]) -> Iterable[Iterable[_A]]:
+    def _group():
+        it = iter(xs)
+        try:
+            prev = next(it)
+            acc = [prev]
+            for curr in it:
+                if curr == prev:
+                    acc.append(curr)
+                else:
+                    yield acc
+                    acc = [curr]
+                    prev = curr
+            yield acc
+        except StopIteration:
+            return
+
+    return Seq(_group)
+
+
+def _test_group():
+    assert group([]) == []
+    assert group([1]) == [[1]]
+    assert group([1, 1]) == [[1, 1]]
+    assert group([1, 2]) == [[1], [2]]
+    assert group([1, 1, 2, 2]) == [[1, 1], [2, 2]]
+    assert group([1, 1, 2, 2, 1]) == [[1, 1], [2, 2], [1]]
+
+
 def elem_index(x: _A, xs: Iterable[_A]) -> Maybe[int]:
     for i, y in enumerate(xs):
         if x == y:
             return Just(i)
     return Nothing()
+
 
 def _test_elem_index():
     assert elem_index(1, []) == Nothing()
