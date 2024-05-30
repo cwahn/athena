@@ -142,6 +142,10 @@ def _test_filter():
 
 
 def head(xs: Iterable[_A]) -> _A:
+    """
+    Return the first element of the iterable.
+    The iterable must not be empty.
+    """
     return next(iter(xs))
 
 
@@ -157,6 +161,10 @@ def _test_head():
 
 
 def last(xs: Iterable[_A]) -> _A:
+    """
+    Return the last element of the iterable.
+    The iterable must not be empty.
+    """
     return functools.reduce(lambda _, x: x, xs)
 
 
@@ -173,6 +181,11 @@ def _test_last():
 
 
 def tail(xs: Iterable[_A]) -> Iterable[_A]:
+    """
+    Return all elements of the iterable except the first one.
+    The iterable must be finite and non-empty.
+    """
+
     def _tail():
         it = iter(xs)
         next(it)
@@ -197,6 +210,11 @@ def _test_tail():
 
 
 def init(xs: Iterable[_A]) -> Iterable[_A]:
+    """
+    Return all elements of the iterable except the last one.
+    The iterable must be finite and non-empty.
+    """
+
     def init_():
         it = iter(xs)
         prev = next(it)
