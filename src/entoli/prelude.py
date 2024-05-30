@@ -457,9 +457,13 @@ def _test_lookup():
 # Zipping and unzipping lists
 
 
-# Variadic version of zip
-def zip(*xss: Iterable[_A]) -> Iterable[Tuple[_A, ...]]:
-    return Seq(lambda: builtins.zip(*xss))
+# # Variadic version of zip
+# def zip(*xss: Iterable[_A]) -> Iterable[Tuple[_A, ...]]:
+#     return Seq(lambda: builtins.zip(*xss))
+
+
+def zip(xs: Iterable[_A], ys: Iterable[_B]) -> Iterable[Tuple[_A, _B]]:
+    return Seq(lambda: builtins.zip(xs, ys))
 
 
 def _test_zip():
@@ -468,7 +472,7 @@ def _test_zip():
     assert zip([], [1]) == []
     assert zip([1], [2]) == [(1, 2)]
     assert zip([1, 2], [3, 4]) == [(1, 3), (2, 4)]
-    assert zip([1, 2], [3, 4], [5, 6]) == [(1, 3, 5), (2, 4, 6)]
+    # assert zip([1, 2], [3, 4], [5, 6]) == [(1, 3, 5), (2, 4, 6)]
 
 
 def zip_with(
