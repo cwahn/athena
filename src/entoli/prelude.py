@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
-from entoli.base.typeclass import Ord
+from entoli.base.typeclass import Ord, ToBool
 
 
 _A = TypeVar("_A")
@@ -886,7 +886,7 @@ def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
         f(x)
 
 
-def if_else(cond: bool, t: _A, f: _A) -> _A:
+def if_else(cond: ToBool, t: _A, f: _A) -> _A:
     return t if cond else f
 
 

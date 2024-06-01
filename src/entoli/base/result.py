@@ -1,5 +1,4 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
 from typing import Any, Callable, Generic, Protocol, TypeVar
 
 # from typeclass import Monad
@@ -7,6 +6,8 @@ from entoli.base.typeclass import Monad
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")
+
+type Result = Err | Ok
 
 
 class _Result(Monad[_A], Protocol[_A]):
@@ -137,9 +138,6 @@ class Err(_Result[Any]):
 
     def or_(self, x: _Result[_A]) -> _Result[_A]:
         return x
-
-
-Result = Ok | Err
 
 
 def result(f: Callable):  # -> Callable[..., Any | Exception]:

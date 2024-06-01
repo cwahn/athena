@@ -32,6 +32,8 @@ _B = TypeVar("_B")
 
 #     def unwrap_or(self, default: _A) -> _A: ...
 
+type Maybe[_A] = Just[_A] | Nothing
+
 
 @dataclass
 # class Just(_Maybe[_A]):
@@ -136,11 +138,8 @@ class Nothing:
         return default
 
 
-Maybe = Just[_A] | Nothing
-
-
-maybe_42 = Just(42)
-maybe_42_ = Nothing()
+# maybe_42 = Just(42)
+# maybe_42_ = Nothing()
 
 # if __name__ == "__main__":
 #     if maybe_42:

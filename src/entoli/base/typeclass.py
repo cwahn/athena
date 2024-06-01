@@ -38,6 +38,10 @@ class Show(Protocol):
     def __str__(self) -> str: ...
 
 
+class ToBool(Protocol):
+    def __bool__(self) -> bool: ...
+
+
 # Monkey-patch implementations
 
 
