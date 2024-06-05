@@ -1,9 +1,24 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Iterable, Protocol, Tuple, Type, TypeVar
+from re import I, sub
+from types import _Fn
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    NewType,
+    Protocol,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 
-from entoli.base.typeclass import _A, _B, _A_co, Monad
+from build.lib.entoli.prelude import head, tail
+from entoli.base import maybe
+from entoli.base.maybe import Just, Maybe, Nothing
+from entoli.base.typeclass import _A, _B, _A_co, Functor, Monad
 from entoli.prelude import append, fst, snd, map
 
 
@@ -12,6 +27,8 @@ _U = TypeVar("_U")
 _M = TypeVar("_M", bound=Monad)
 _A = TypeVar("_A")
 _B = TypeVar("_B")
+
+_T = TypeVar("_T")
 
 # type _M[_B] = Monad[_B]
 
@@ -31,7 +48,7 @@ _B = TypeVar("_B")
 
 
 @dataclass
-class Parsec(Generic[_S, _U, _A]):
+class Parser(Generic[_S, _U, _A], Monad[_A]):
     un_parser: Callable[
         [
             State[_S, _U],
@@ -42,6 +59,26 @@ class Parsec(Generic[_S, _U, _A]):
         ],
         Any,
     ]
+
+    @staticmethod
+    def fmap(f: Callable[[_A], _B], x: "Parser[_S, _U, _A]") -> "Parser[_S, _U, _B]":
+        return parser_map(f, x)
+
+    @staticmethod
+    def pure(x: _A) -> "Parser[_S, _U, _A]":
+        return parser_pure(x)
+
+    @staticmethod
+    def ap(
+        f: "Parser[_S, _U, Callable[[_A], _B]]", x: "Parser[_S, _U, _A]"
+    ) -> "Parser[_S, _U, _B]":
+        return Parser.bind(f, lambda f_: Parser.bind(x, lambda x_: parser_pure(f_(x_))))
+
+    @staticmethod
+    def bind(
+        x: "Parser[_S, _U, _A]", f: Callable[[_A], "Parser[_S, _U, _B]"]
+    ) -> "Parser[_S, _U, _B]":
+        return parser_bind(x, f)
 
 
 @dataclass
@@ -57,20 +94,94 @@ class SourcePos:
     line: int
     col: int
 
+    def __lt__(self, other: SourcePos) -> bool:
+        if self.line < other.line:
+            return True
+        if self.line == other.line:
+            return self.col < other.col
+        return False
+
+
+type Message = SysUnExpect | UnExpect | Expect | RawMessage
+
+SysUnExpect = NewType("SysUnExpect", str)
+UnExpect = NewType("UnExpect", str)
+Expect = NewType("Expect", str)
+RawMessage = NewType("RawMessage", str)
+
 
 @dataclass
 class ParseError:
     source_pos: SourcePos
-    message: str
+    message: Iterable[Message]
 
 
-# runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
-# {-# INLINABLE runParsecT #-}
-# runParsecT p s = unParser p s cok cerr eok eerr
-#     where cok a s' err = return . Consumed . return $ Ok a s' err
-#           cerr err = return . Consumed . return $ Error err
-#           eok a s' err = return . Empty . return $ Ok a s' err
-#           eerr err = return . Empty . return $ Error err
+# newErrorUnknown :: SourcePos -> ParseError
+# newErrorUnknown pos
+#     = ParseError pos []
+
+
+def new_error_unknown(
+    pos: SourcePos,
+) -> ParseError:
+    return ParseError(pos, [])
+
+
+# newErrorMessage :: Message -> SourcePos -> ParseError
+# newErrorMessage msg pos
+#     = ParseError pos [msg]
+
+
+def new_error_message(
+    msg: Message,
+    pos: SourcePos,
+) -> ParseError:
+    return ParseError(pos, [msg])
+
+
+# setErrorMessage :: Message -> ParseError -> ParseError
+# setErrorMessage msg (ParseError pos msgs)
+#     = ParseError pos (msg : filter (msg /=) msgs)
+
+
+def set_error_message(
+    msg: Message,
+    e: ParseError,
+) -> ParseError:
+    return ParseError(
+        e.source_pos, append([msg], filter(lambda m: m != msg, e.message))
+    )
+
+
+# mergeError :: ParseError -> ParseError -> ParseError
+# mergeError e1@(ParseError pos1 msgs1) e2@(ParseError pos2 msgs2)
+#     -- prefer meaningful errors
+#     | null msgs2 && not (null msgs1) = e1
+#     | null msgs1 && not (null msgs2) = e2
+#     | otherwise
+#       -- perfectly we'd compare the consumed token count
+#       -- https://github.com/haskell/parsec/issues/175
+#     = case compareErrorPos pos1 pos2 of
+#         -- select the longest match
+#         EQ -> ParseError pos1 (msgs1 ++ msgs2)
+#         GT -> e1
+#         LT -> e2
+
+
+def merge_error(
+    e1: ParseError,
+    e2: ParseError,
+) -> ParseError:
+    if not e2.message and e1.message:
+        return e1
+    if not e1.message and e2.message:
+        return e2
+    if e1.source_pos == e2.source_pos:
+        return ParseError(e1.source_pos, append(e1.message, e2.message))
+    if e1.source_pos < e2.source_pos:
+        return e1
+    else:
+        return e2
 
 
 type MbConsumed[_A] = Consumed[_A] | Empty
@@ -86,18 +197,18 @@ class Empty(Generic[_A]):
     value: _A
 
 
-type Reply[_S, _U, _A] = Reply_Ok[_S, _U, _A] | Reply_Error[_S, _U]
+type Reply[_S, _U, _A] = Reply_Error | Reply_Ok[_S, _U, _A]
+
+
+@dataclass
+class Reply_Error:
+    err: ParseError
 
 
 @dataclass
 class Reply_Ok(Generic[_S, _U, _A]):
     a: _A
     state: State[_S, _U]
-    err: ParseError
-
-
-@dataclass
-class Reply_Error(Generic[_S, _U]):
     err: ParseError
 
 
@@ -111,7 +222,7 @@ class Reply_Error(Generic[_S, _U]):
 
 
 def run_parser(
-    parser: Parsec[_S, _U, _A],
+    parser: Parser[_S, _U, _A],
     state: State[_S, _U],
     # ) -> MbConsumed[_M[Reply[_S, _U, _A]]]:
 ) -> MbConsumed[_M]:
@@ -147,10 +258,10 @@ def run_parser(
 #                          Error err -> eerr err
 
 
-def mk_parser_t(
+def make_parser(
     k: Callable[[State[_S, _U]], MbConsumed[Reply[_S, _U, _A]]],
-) -> Parsec[_S, _U, _A]:
-    def un_parser(
+) -> Parser[_S, _U, _A]:
+    def _un_parser(
         s: State[_S, _U],
         cok: Callable[[_A, State[_S, _U], ParseError], Any],
         cerr: Callable[[ParseError], Any],
@@ -174,4 +285,477 @@ def mk_parser_t(
                     case Reply_Error(err):
                         eerr(err)
 
-    return Parsec(un_parser)
+    return Parser(_un_parser)
+
+
+# parsecMap :: (a -> b) -> ParsecT s u m a -> ParsecT s u m b
+# parsecMap f p
+#     = ParsecT $ \s cok cerr eok eerr ->
+#       unParser p s (cok . f) cerr (eok . f) eerr
+
+
+def parser_map(
+    f: Callable[[_A], _B],
+    parser: Parser[_S, _U, _A],
+) -> Parser[_S, _U, _B]:
+    def _un_parser(
+        s: State[_S, _U],
+        consumed_ok: Callable[[_B, State[_S, _U], ParseError], Any],
+        consumed_error: Callable[[ParseError], Any],
+        empty_ok: Callable[[_B, State[_S, _U], ParseError], Any],
+        empty_error: Callable[[ParseError], Any],
+    ) -> Any:
+        return parser.un_parser(
+            s,
+            lambda a, s_, err: consumed_ok(f(a), s_, err),
+            consumed_error,
+            lambda a, s_, err: empty_ok(f(a), s_, err),
+            empty_error,
+        )
+
+    return Parser(_un_parser)
+
+
+# parserReturn :: a -> ParsecT s u m a
+# parserReturn x
+#     = ParsecT $ \s _ _ eok _ ->
+#       eok x s (unknownError s)
+
+
+def parser_pure(
+    x: _A,
+) -> Parser[_S, _U, _A]:
+    return Parser(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
+
+
+# parserBind :: ParsecT s u m a -> (a -> ParsecT s u m b) -> ParsecT s u m b
+# {-# INLINE parserBind #-}
+# parserBind m k
+#   = ParsecT $ \s cok cerr eok eerr ->
+#     let
+#         -- consumed-okay case for m
+#         mcok x s err
+#           | errorIsUnknown err = unParser (k x) s cok cerr cok cerr
+#           | otherwise =
+#             let
+#                  -- if (k x) consumes, those go straight up
+#                  pcok = cok
+#                  pcerr = cerr
+
+#                  -- if (k x) doesn't consume input, but is okay,
+#                  -- we still return in the consumed continuation
+#                  peok x s err' = cok x s (mergeError err err')
+
+#                  -- if (k x) doesn't consume input, but errors,
+#                  -- we return the error in the 'consumed-error'
+#                  -- continuation
+#                  peerr err' = cerr (mergeError err err')
+#             in  unParser (k x) s pcok pcerr peok peerr
+
+#         -- empty-ok case for m
+#         meok x s err
+#           | errorIsUnknown err = unParser (k x) s cok cerr eok eerr
+#           | otherwise =
+#             let
+#                 -- in these cases, (k x) can return as empty
+#                 pcok = cok
+#                 peok x s err' = eok x s (mergeError err err')
+#                 pcerr = cerr
+#                 peerr err' = eerr (mergeError err err')
+#             in  unParser (k x) s pcok pcerr peok peerr
+#         -- consumed-error case for m
+#         mcerr = cerr
+
+#         -- empty-error case for m
+#         meerr = eerr
+
+#     in unParser m s mcok mcerr meok meerr
+
+
+def parser_bind(
+    parser: Parser[_S, _U, _A],
+    f: Callable[[_A], Parser[_S, _U, _B]],
+) -> Parser[_S, _U, _B]:
+    def _un_parser(
+        s: State[_S, _U],
+        cok: Callable[[_B, State[_S, _U], ParseError], Any],
+        cerr: Callable[[ParseError], Any],
+        eok: Callable[[_B, State[_S, _U], ParseError], Any],
+        eerr: Callable[[ParseError], Any],
+    ) -> Any:
+        def mcok(x, s, err):
+            if err == unknown_error(s):
+                return f(x).un_parser(s, cok, cerr, cok, cerr)
+            else:
+                pcok = cok
+                pcerr = cerr
+
+                def peok(x, s, err_):
+                    return cok(x, s, merge_error(err, err_))
+
+                def peerr(err_):
+                    return cerr(merge_error(err, err_))
+
+                return f(x).un_parser(s, pcok, pcerr, peok, peerr)
+
+        def meok(x, s, err):
+            if err == unknown_error(s):
+                return f(x).un_parser(s, cok, cerr, eok, eerr)
+            else:
+                pcok = cok
+
+                def peok(x, s, err_):
+                    return eok(x, s, merge_error(err, err_))
+
+                pcerr = cerr
+
+                def peerr(err_):
+                    return eerr(merge_error(err, err_))
+
+                return f(x).un_parser(s, pcok, pcerr, peok, peerr)
+
+        return parser.un_parser(s, mcok, cerr, meok, eerr)
+
+    return Parser(_un_parser)
+
+
+def uncons(xs: Iterable[_T]) -> Maybe[Tuple[_T, Iterable[_T]]]:
+    match xs:
+        case []:
+            return Nothing()
+        case _:
+            return Just((head(xs), tail(xs)))
+
+
+# tokens :: (Stream s m t, Eq t)
+#        => ([t] -> String)      -- Pretty print a list of tokens
+#        -> (SourcePos -> [t] -> SourcePos)
+#        -> [t]                  -- List of tokens to parse
+#        -> ParsecT s u m [t]
+# {-# INLINE tokens #-}
+# tokens _ _ []
+#     = ParsecT $ \s _ _ eok _ ->
+#       eok [] s $ unknownError s
+# tokens showTokens nextposs tts@(tok:toks)
+#     = ParsecT $ \(State input pos u) cok cerr _eok eerr ->
+#     let
+#         errEof = (setErrorMessage (Expect (showTokens tts))
+#                   (newErrorMessage (SysUnExpect "") pos))
+
+#         errExpect x = (setErrorMessage (Expect (showTokens tts))
+#                        (newErrorMessage (SysUnExpect (showTokens [x])) pos))
+
+#         walk []     rs = ok rs
+#         walk (t:ts) rs = do
+#           sr <- uncons rs
+#           case sr of
+#             Nothing                 -> cerr $ errEof
+#             Just (x,xs) | t == x    -> walk ts xs
+#                         | otherwise -> cerr $ errExpect x
+
+#         ok rs = let pos' = nextposs pos tts
+#                     s' = State rs pos' u
+#                 in cok tts s' (newErrorUnknown pos')
+#     in do
+#         sr <- uncons input
+#         case sr of
+#             Nothing         -> eerr $ errEof
+#             Just (x,xs)
+#                 | tok == x  -> walk toks xs
+#                 | otherwise -> eerr $ errExpect x
+
+
+def tokens(
+    show_tokens: Callable[[Iterable[_T]], str],
+    next_pos: Callable[[SourcePos, Iterable[_T]], SourcePos],
+    tts: Iterable[_T],
+) -> Parser[Iterable[_T], _U, Iterable[_T]]:
+    match tts:
+        case []:
+            return Parser(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
+        case ts:
+            tok = head(ts)
+            toks = tail(ts)
+
+            def _un_parser(
+                # s: State[_S, _U],
+                s: State[Iterable[_T], _U],
+                cok: Callable[[Iterable[_T], State[Iterable[_T], _U], ParseError], Any],
+                cerr: Callable[[ParseError], Any],
+                _eok: Callable[
+                    [Iterable[_T], State[Iterable[_T], _U], ParseError], Any
+                ],
+                eerr: Callable[[ParseError], Any],
+            ) -> Any:
+                err_eof = set_error_message(
+                    Expect(show_tokens(tts)),
+                    new_error_message(SysUnExpect(""), s.state_pos),
+                )
+
+                def err_expect(x):
+                    return set_error_message(
+                        Expect(show_tokens(tts)),
+                        new_error_message(SysUnExpect(show_tokens([x])), s.state_pos),
+                    )
+
+                def walk(ts: Iterable[_T], rs: Iterable[_T]) -> Any:
+                    match ts:
+                        case []:
+                            return ok(rs)
+                        case [t, *ts]:
+                            sr = uncons(rs)
+                            match sr:
+                                case Nothing():
+                                    return cerr(err_eof)
+                                case Just((x, xs)):
+                                    if t == x:
+                                        return walk(ts, xs)
+                                    else:
+                                        return cerr(err_expect(x))
+
+                def ok(rs: Iterable[_T]) -> Any:
+                    pos_ = next_pos(s.state_pos, tts)
+                    s_ = State(rs, pos_, s.state_user)
+                    return cok(tts, s_, new_error_unknown(pos_))
+
+                sr = uncons(s.state_input)
+
+                match sr:
+                    case Nothing():
+                        return eerr(err_eof)
+                    case Just((x, xs)):
+                        if tok == x:
+                            return walk(toks, xs)
+                        else:
+                            return eerr(err_expect(x))
+
+            return Parser(_un_parser)
+
+
+# -- | Like 'tokens', but doesn't consume matching prefix.
+# --
+# -- @since 3.1.16.0
+# tokens' :: (Stream s m t, Eq t)
+#        => ([t] -> String)      -- Pretty print a list of tokens
+#        -> (SourcePos -> [t] -> SourcePos)
+#        -> [t]                  -- List of tokens to parse
+#        -> ParsecT s u m [t]
+# {-# INLINE tokens' #-}
+# tokens' _ _ []
+#     = ParsecT $ \s _ _ eok _ ->
+#       eok [] s $ unknownError s
+# tokens' showTokens nextposs tts@(tok:toks)
+#     = ParsecT $ \(State input pos u) cok _cerr _eok eerr ->
+#     let
+#         errEof = (setErrorMessage (Expect (showTokens tts))
+#                   (newErrorMessage (SysUnExpect "") pos))
+
+#         errExpect x = (setErrorMessage (Expect (showTokens tts))
+#                        (newErrorMessage (SysUnExpect (showTokens [x])) pos))
+
+#         walk []     rs = ok rs
+#         walk (t:ts) rs = do
+#           sr <- uncons rs
+#           case sr of
+#             Nothing                 -> eerr $ errEof
+#             Just (x,xs) | t == x    -> walk ts xs
+#                         | otherwise -> eerr $ errExpect x
+
+#         ok rs = let pos' = nextposs pos tts
+#                     s' = State rs pos' u
+#                 in cok tts s' (newErrorUnknown pos')
+#     in do
+#         sr <- uncons input
+#         case sr of
+#             Nothing         -> eerr $ errEof
+#             Just (x,xs)
+#                 | tok == x  -> walk toks xs
+#                 | otherwise -> eerr $ errExpect x
+
+
+def tokens_(
+    show_tokens: Callable[[Iterable[_T]], str],
+    next_pos: Callable[[SourcePos, Iterable[_T]], SourcePos],
+    tts: Iterable[_T],
+) -> Parser[Iterable[_T], _U, Iterable[_T]]:
+    match tts:
+        case []:
+            return Parser(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
+        case ts:
+            tok = head(ts)
+            toks = tail(ts)
+
+            def _un_parser(
+                s: State[Iterable[_T], _U],
+                cok: Callable[[Iterable[_T], State[Iterable[_T], _U], ParseError], Any],
+                _cerr: Callable[[ParseError], Any],
+                _eok: Callable[
+                    [Iterable[_T], State[Iterable[_T], _U], ParseError], Any
+                ],
+                eerr: Callable[[ParseError], Any],
+            ) -> Any:
+                err_eof = set_error_message(
+                    Expect(show_tokens(tts)),
+                    new_error_message(SysUnExpect(""), s.state_pos),
+                )
+
+                def err_expect(x):
+                    return set_error_message(
+                        Expect(show_tokens(tts)),
+                        new_error_message(SysUnExpect(show_tokens([x])), s.state_pos),
+                    )
+
+                def walk(ts: Iterable[_T], rs: Iterable[_T]) -> Any:
+                    match ts:
+                        case []:
+                            return ok(rs)
+                        case [t, *ts]:
+                            sr = uncons(rs)
+                            match sr:
+                                case Nothing():
+                                    return eerr(err_eof)
+                                case Just((x, xs)):
+                                    if t == x:
+                                        return walk(ts, xs)
+                                    else:
+                                        return eerr(err_expect(x))
+
+                def ok(rs: Iterable[_T]) -> Any:
+                    pos_ = next_pos(s.state_pos, tts)
+                    s_ = State(rs, pos_, s.state_user)
+                    return cok(tts, s_, new_error_unknown(pos_))
+
+                sr = uncons(s.state_input)
+
+                match sr:
+                    case Nothing():
+                        return eerr(err_eof)
+                    case Just((x, xs)):
+                        if tok == x:
+                            return walk(toks, xs)
+                        else:
+                            return eerr(err_expect(x))
+
+            return Parser(_un_parser)
+
+
+# tokenPrim :: (Stream s m t)
+#           => (t -> String)                      -- ^ Token pretty-printing function.
+#           -> (SourcePos -> t -> s -> SourcePos) -- ^ Next position calculating function.
+#           -> (t -> Maybe a)                     -- ^ Matching function for the token to parse.
+#           -> ParsecT s u m a
+# {-# INLINE tokenPrim #-}
+# tokenPrim showToken nextpos test = tokenPrimEx showToken nextpos Nothing test
+
+
+def token_prim(
+    show_token: Callable[[_T], str],
+    next_pos: Callable[[SourcePos, _T, Iterable[_T]], SourcePos],
+    test: Callable[[_T], Maybe[_A]],
+) -> Parser[Iterable[_T], _U, _A]:
+    return token_prim_ex(show_token, next_pos, Nothing(), test)
+
+
+# tokenPrimEx :: (Stream s m t)
+#             => (t -> String)
+#             -> (SourcePos -> t -> s -> SourcePos)
+#             -> Maybe (SourcePos -> t -> s -> u -> u)
+#             -> (t -> Maybe a)
+#             -> ParsecT s u m a
+# {-# INLINE tokenPrimEx #-}
+# tokenPrimEx showToken nextpos Nothing test
+#   = ParsecT $ \(State input pos user) cok _cerr _eok eerr -> do
+#       r <- uncons input
+#       case r of
+#         Nothing -> eerr $ unexpectError "" pos
+#         Just (c,cs)
+#          -> case test c of
+#               Just x -> let newpos = nextpos pos c cs
+#                             newstate = State cs newpos user
+#                         in seq newpos $ seq newstate $
+#                            cok x newstate (newErrorUnknown newpos)
+#               Nothing -> eerr $ unexpectError (showToken c) pos
+# tokenPrimEx showToken nextpos (Just nextState) test
+#   = ParsecT $ \(State input pos user) cok _cerr _eok eerr -> do
+#       r <- uncons input
+#       case r of
+#         Nothing -> eerr $ unexpectError "" pos
+#         Just (c,cs)
+#          -> case test c of
+#               Just x -> let newpos = nextpos pos c cs
+#                             newUser = nextState pos c cs user
+#                             newstate = State cs newpos newUser
+#                         in seq newpos $ seq newstate $
+#                            cok x newstate $ newErrorUnknown newpos
+#               Nothing -> eerr $ unexpectError (showToken c) pos
+
+
+def token_prim_ex(
+    show_token: Callable[[_T], str],
+    next_pos: Callable[[SourcePos, _T, Iterable[_T]], SourcePos],
+    next_state: Maybe[Callable[[SourcePos, _T, Iterable[_T], _U], _U]],
+    test: Callable[[_T], Maybe[_A]],
+) -> Parser[Iterable[_T], _U, _A]:
+    def _un_parser(
+        s: State[Iterable[_T], _U],
+        cok: Callable[[_A, State[Iterable[_T], _U], ParseError], Any],
+        _cerr: Callable[[ParseError], Any],
+        _eok: Callable[[_A, State[Iterable[_T], _U], ParseError], Any],
+        eerr: Callable[[ParseError], Any],
+    ) -> Any:
+        r = uncons(s.state_input)
+        match r:
+            case Nothing():
+                return eerr(new_error_message(SysUnExpect(""), s.state_pos))
+            case Just((c, cs)):
+                match test(c):
+                    case Just(x):
+                        new_pos = next_pos(s.state_pos, c, cs)
+                        new_state = State(cs, new_pos, s.state_user)
+                        return cok(x, new_state, new_error_unknown(new_pos))
+                    case Nothing():
+                        return eerr(
+                            new_error_message(SysUnExpect(show_token(c)), s.state_pos)
+                        )
+
+    return Parser(_un_parser)
+
+
+# token :: (Stream s Identity t)
+#       => (t -> String)            -- ^ Token pretty-printing function.
+#       -> (t -> SourcePos)         -- ^ Computes the position of a token.
+#       -> (t -> Maybe a)           -- ^ Matching function for the token to parse.
+#       -> Parsec s u a
+# {-# INLINABLE token #-}
+# token showToken tokpos test = tokenPrim showToken nextpos test
+#     where
+#         nextpos _ tok ts = case runIdentity (uncons ts) of
+#                              Nothing -> tokpos tok
+#                              Just (tok',_) -> tokpos tok'
+
+
+def token(
+    show_token: Callable[[_T], str],
+    tok_pos: Callable[[_T], SourcePos],
+    test: Callable[[_T], Maybe[_A]],
+) -> Parser[Iterable[_T], _U, _A]:
+    return token_prim(show_token, lambda _, tok, ts: tok_pos(tok), test)
+
+
+# unknownError :: State s u -> ParseError
+# unknownError state        = newErrorUnknown (statePos state)
+
+
+def unknown_error(
+    state: State[_S, _U],
+) -> ParseError:
+    return new_error_unknown(state.state_pos)
+
+
+# runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
+# {-# INLINABLE runParsecT #-}
+# runParsecT p s = unParser p s cok cerr eok eerr
+#     where cok a s' err = return . Consumed . return $ Ok a s' err
+#           cerr err = return . Consumed . return $ Error err
+#           eok a s' err = return . Empty . return $ Ok a s' err
+#           eerr err = return . Empty . return $ Error err
