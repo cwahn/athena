@@ -63,5 +63,5 @@ def request(
         new_cookies = parse_cookies(res.getheader("Set-Cookie", ""))
         session.cookies = Io(lambda: {**cookies, **new_cookies})
         return res
-    
+
     return Io(_request)
