@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ast import mod
 from dataclasses import dataclass
 from re import I, sub
 from types import _Fn
@@ -14,9 +15,14 @@ from typing import (
     TypeVar,
 )
 
+from networkx import dfs_edges
+from requests import put
 
-from build.lib.entoli.prelude import head, tail
+
+from build.lib.entoli.prelude import foldl, head, put_strln, tail, id
 from entoli.base import maybe
+from entoli.base.either import Either
+from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.typeclass import _A, _B, _A_co, Functor, Monad
 from entoli.prelude import append, fst, snd, map
@@ -48,7 +54,7 @@ _T = TypeVar("_T")
 
 
 @dataclass
-class Parser(Generic[_S, _U, _A], Monad[_A]):
+class Parsec(Generic[_S, _U, _A], Monad[_A]):
     un_parser: Callable[
         [
             State[_S, _U],
@@ -61,24 +67,109 @@ class Parser(Generic[_S, _U, _A], Monad[_A]):
     ]
 
     @staticmethod
-    def fmap(f: Callable[[_A], _B], x: "Parser[_S, _U, _A]") -> "Parser[_S, _U, _B]":
+    def fmap(f: Callable[[_A], _B], x: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _B]":
         return parser_map(f, x)
 
     @staticmethod
-    def pure(x: _A) -> "Parser[_S, _U, _A]":
+    def pure(x: _A) -> "Parsec[_S, _U, _A]":
         return parser_pure(x)
 
     @staticmethod
     def ap(
-        f: "Parser[_S, _U, Callable[[_A], _B]]", x: "Parser[_S, _U, _A]"
-    ) -> "Parser[_S, _U, _B]":
-        return Parser.bind(f, lambda f_: Parser.bind(x, lambda x_: parser_pure(f_(x_))))
+        f: "Parsec[_S, _U, Callable[[_A], _B]]", x: "Parsec[_S, _U, _A]"
+    ) -> "Parsec[_S, _U, _B]":
+        return Parsec.bind(f, lambda f_: Parsec.bind(x, lambda x_: Parsec.pure(f_(x_))))
 
     @staticmethod
     def bind(
-        x: "Parser[_S, _U, _A]", f: Callable[[_A], "Parser[_S, _U, _B]"]
-    ) -> "Parser[_S, _U, _B]":
+        x: "Parsec[_S, _U, _A]", f: Callable[[_A], "Parsec[_S, _U, _B]"]
+    ) -> "Parsec[_S, _U, _B]":
         return parser_bind(x, f)
+
+    def map(self, f: Callable[[_A], _B]) -> "Parsec[_S, _U, _B]":
+        return Parsec.fmap(f, self)
+
+    def and_then(self, f: Callable[[_A], "Parsec[_S, _U, _B]"]) -> "Parsec[_S, _U, _B]":
+        return Parsec.bind(self, f)
+
+    def then(self, x: "Parsec[_S, _U, _B]") -> "Parsec[_S, _U, _B]":
+        return Parsec.bind(self, lambda _: x)
+
+
+# runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
+# {-# INLINABLE runParsecT #-}
+# runParsecT p s = unParser p s cok cerr eok eerr
+#     where cok a s' err = return . Consumed . return $ Ok a s' err
+#           cerr err = return . Consumed . return $ Error err
+#           eok a s' err = return . Empty . return $ Ok a s' err
+#           eerr err = return . Empty . return $ Error err
+
+
+def _run_parser_t(
+    parser: Parsec[_S, _U, _A],
+    state: State[_S, _U],
+    # ) -> MbConsumed[_M[Reply[_S, _U, _A]]]:
+) -> MbConsumed[Reply[_S, _U, _A]]:
+    def consumed_ok(a, s, err):
+        return Consumed(Reply_Ok(s, a, err))
+
+    def consumed_error(err):
+        return Consumed(Reply_Error(err))
+
+    def empty_ok(a, s, err):
+        return Empty(Reply_Ok(s, a, err))
+
+    def empty_error(err):
+        return Empty(Reply_Error(err))
+
+    return parser.un_parser(state, consumed_ok, consumed_error, empty_ok, empty_error)
+
+
+# mkPT :: Monad m => (State s u -> m (Consumed (m (Reply s u a)))) -> ParsecT s u m a
+# {-# INLINABLE mkPT #-}
+# mkPT k = ParsecT $ \s cok cerr eok eerr -> do
+#            cons <- k s
+#            case cons of
+#              Consumed mrep -> do
+#                        rep <- mrep
+#                        case rep of
+#                          Ok x s' err -> cok x s' err
+#                          Error err -> cerr err
+#              Empty mrep -> do
+#                        rep <- mrep
+#                        case rep of
+#                          Ok x s' err -> eok x s' err
+#                          Error err -> eerr err
+
+
+def make_parser(
+    k: Callable[[State[_S, _U]], MbConsumed[Reply[_S, _U, _A]]],
+) -> Parsec[_S, _U, _A]:
+    def _un_parser(
+        s: State[_S, _U],
+        cok: Callable[[_A, State[_S, _U], ParseError], Any],
+        cerr: Callable[[ParseError], Any],
+        eok: Callable[[_A, State[_S, _U], ParseError], Any],
+        eerr: Callable[[ParseError], Any],
+    ) -> Any:
+        cons = k(s)
+        match cons:
+            case Consumed(mrep):
+                rep = mrep
+                match rep:
+                    case Reply_Ok(x, s_, err):
+                        cok(x, s_, err)
+                    case Reply_Error(err):
+                        cerr(err)
+            case Empty(mrep):
+                rep = mrep
+                match rep:
+                    case Reply_Ok(x, s_, err):
+                        eok(x, s_, err)
+                    case Reply_Error(err):
+                        eerr(err)
+
+    return Parsec(_un_parser)
 
 
 @dataclass
@@ -100,6 +191,63 @@ class SourcePos:
         if self.line == other.line:
             return self.col < other.col
         return False
+
+
+# newPos :: SourceName -> Line -> Column -> SourcePos
+# newPos name line column
+#     = SourcePos name line column
+
+
+def new_pos(
+    name: str,
+    line: int,
+    column: int,
+) -> SourcePos:
+    return SourcePos(name, line, column)
+
+
+# initialPos :: SourceName -> SourcePos
+# initialPos name
+#     = newPos name 1 1
+
+
+def initial_pos(
+    name: str,
+) -> SourcePos:
+    return new_pos(name, 1, 1)
+
+
+# updatePosString :: SourcePos -> String -> SourcePos
+# updatePosString pos string
+#     = foldl updatePosChar pos string
+
+
+def update_pos_string(
+    pos: SourcePos,
+    string: Iterable[str],
+) -> SourcePos:
+    return foldl(update_pos_char, pos, string)
+
+
+# updatePosChar   :: SourcePos -> Char -> SourcePos
+# updatePosChar (SourcePos name line column) c
+#     = case c of
+#         '\n' -> SourcePos name (line+1) 1
+#         '\t' -> SourcePos name line (column + 8 - ((column-1) `mod` 8))
+#         _    -> SourcePos name line (column + 1)
+
+
+def update_pos_char(
+    pos: SourcePos,
+    c: str,
+) -> SourcePos:
+    match c:
+        case "\n":
+            return new_pos(pos.name, pos.line + 1, 1)
+        case "\t":
+            return new_pos(pos.name, pos.line, pos.col + 8 - ((pos.col - 1) % 8))
+        case _:
+            return new_pos(pos.name, pos.line, pos.col + 1)
 
 
 type Message = SysUnExpect | UnExpect | Expect | RawMessage
@@ -212,82 +360,6 @@ class Reply_Ok(Generic[_S, _U, _A]):
     err: ParseError
 
 
-# runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
-# {-# INLINABLE runParsecT #-}
-# runParsecT p s = unParser p s cok cerr eok eerr
-#     where cok a s' err = return . Consumed . return $ Ok a s' err
-#           cerr err = return . Consumed . return $ Error err
-#           eok a s' err = return . Empty . return $ Ok a s' err
-#           eerr err = return . Empty . return $ Error err
-
-
-def run_parser(
-    parser: Parser[_S, _U, _A],
-    state: State[_S, _U],
-    # ) -> MbConsumed[_M[Reply[_S, _U, _A]]]:
-) -> MbConsumed[_M]:
-    def consumed_ok(a, s, err):
-        return Consumed(Reply_Ok(s, a, err))
-
-    def consumed_error(err):
-        return Consumed(Reply_Error(err))
-
-    def empty_ok(a, s, err):
-        return Empty(Reply_Ok(s, a, err))
-
-    def empty_error(err):
-        return Empty(Reply_Error(err))
-
-    return parser.un_parser(state, consumed_ok, consumed_error, empty_ok, empty_error)
-
-
-# mkPT :: Monad m => (State s u -> m (Consumed (m (Reply s u a)))) -> ParsecT s u m a
-# {-# INLINABLE mkPT #-}
-# mkPT k = ParsecT $ \s cok cerr eok eerr -> do
-#            cons <- k s
-#            case cons of
-#              Consumed mrep -> do
-#                        rep <- mrep
-#                        case rep of
-#                          Ok x s' err -> cok x s' err
-#                          Error err -> cerr err
-#              Empty mrep -> do
-#                        rep <- mrep
-#                        case rep of
-#                          Ok x s' err -> eok x s' err
-#                          Error err -> eerr err
-
-
-def make_parser(
-    k: Callable[[State[_S, _U]], MbConsumed[Reply[_S, _U, _A]]],
-) -> Parser[_S, _U, _A]:
-    def _un_parser(
-        s: State[_S, _U],
-        cok: Callable[[_A, State[_S, _U], ParseError], Any],
-        cerr: Callable[[ParseError], Any],
-        eok: Callable[[_A, State[_S, _U], ParseError], Any],
-        eerr: Callable[[ParseError], Any],
-    ) -> Any:
-        cons = k(s)
-        match cons:
-            case Consumed(mrep):
-                rep = mrep
-                match rep:
-                    case Reply_Ok(x, s_, err):
-                        cok(x, s_, err)
-                    case Reply_Error(err):
-                        cerr(err)
-            case Empty(mrep):
-                rep = mrep
-                match rep:
-                    case Reply_Ok(x, s_, err):
-                        eok(x, s_, err)
-                    case Reply_Error(err):
-                        eerr(err)
-
-    return Parser(_un_parser)
-
-
 # parsecMap :: (a -> b) -> ParsecT s u m a -> ParsecT s u m b
 # parsecMap f p
 #     = ParsecT $ \s cok cerr eok eerr ->
@@ -296,8 +368,8 @@ def make_parser(
 
 def parser_map(
     f: Callable[[_A], _B],
-    parser: Parser[_S, _U, _A],
-) -> Parser[_S, _U, _B]:
+    parser: Parsec[_S, _U, _A],
+) -> Parsec[_S, _U, _B]:
     def _un_parser(
         s: State[_S, _U],
         consumed_ok: Callable[[_B, State[_S, _U], ParseError], Any],
@@ -313,7 +385,7 @@ def parser_map(
             empty_error,
         )
 
-    return Parser(_un_parser)
+    return Parsec(_un_parser)
 
 
 # parserReturn :: a -> ParsecT s u m a
@@ -324,8 +396,8 @@ def parser_map(
 
 def parser_pure(
     x: _A,
-) -> Parser[_S, _U, _A]:
-    return Parser(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
+) -> Parsec[_S, _U, _A]:
+    return Parsec(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
 
 
 # parserBind :: ParsecT s u m a -> (a -> ParsecT s u m b) -> ParsecT s u m b
@@ -373,9 +445,9 @@ def parser_pure(
 
 
 def parser_bind(
-    parser: Parser[_S, _U, _A],
-    f: Callable[[_A], Parser[_S, _U, _B]],
-) -> Parser[_S, _U, _B]:
+    parser: Parsec[_S, _U, _A],
+    f: Callable[[_A], Parsec[_S, _U, _B]],
+) -> Parsec[_S, _U, _B]:
     def _un_parser(
         s: State[_S, _U],
         cok: Callable[[_B, State[_S, _U], ParseError], Any],
@@ -416,7 +488,7 @@ def parser_bind(
 
         return parser.un_parser(s, mcok, cerr, meok, eerr)
 
-    return Parser(_un_parser)
+    return Parsec(_un_parser)
 
 
 def uncons(xs: Iterable[_T]) -> Maybe[Tuple[_T, Iterable[_T]]]:
@@ -469,10 +541,10 @@ def tokens(
     show_tokens: Callable[[Iterable[_T]], str],
     next_pos: Callable[[SourcePos, Iterable[_T]], SourcePos],
     tts: Iterable[_T],
-) -> Parser[Iterable[_T], _U, Iterable[_T]]:
+) -> Parsec[Iterable[_T], _U, Iterable[_T]]:
     match tts:
         case []:
-            return Parser(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
+            return Parsec(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
         case ts:
             tok = head(ts)
             toks = tail(ts)
@@ -529,7 +601,7 @@ def tokens(
                         else:
                             return eerr(err_expect(x))
 
-            return Parser(_un_parser)
+            return Parsec(_un_parser)
 
 
 # -- | Like 'tokens', but doesn't consume matching prefix.
@@ -577,10 +649,10 @@ def tokens_(
     show_tokens: Callable[[Iterable[_T]], str],
     next_pos: Callable[[SourcePos, Iterable[_T]], SourcePos],
     tts: Iterable[_T],
-) -> Parser[Iterable[_T], _U, Iterable[_T]]:
+) -> Parsec[Iterable[_T], _U, Iterable[_T]]:
     match tts:
         case []:
-            return Parser(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
+            return Parsec(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
         case ts:
             tok = head(ts)
             toks = tail(ts)
@@ -636,7 +708,7 @@ def tokens_(
                         else:
                             return eerr(err_expect(x))
 
-            return Parser(_un_parser)
+            return Parsec(_un_parser)
 
 
 # tokenPrim :: (Stream s m t)
@@ -652,7 +724,7 @@ def token_prim(
     show_token: Callable[[_T], str],
     next_pos: Callable[[SourcePos, _T, Iterable[_T]], SourcePos],
     test: Callable[[_T], Maybe[_A]],
-) -> Parser[Iterable[_T], _U, _A]:
+) -> Parsec[Iterable[_T], _U, _A]:
     return token_prim_ex(show_token, next_pos, Nothing(), test)
 
 
@@ -695,7 +767,7 @@ def token_prim_ex(
     next_pos: Callable[[SourcePos, _T, Iterable[_T]], SourcePos],
     next_state: Maybe[Callable[[SourcePos, _T, Iterable[_T], _U], _U]],
     test: Callable[[_T], Maybe[_A]],
-) -> Parser[Iterable[_T], _U, _A]:
+) -> Parsec[Iterable[_T], _U, _A]:
     def _un_parser(
         s: State[Iterable[_T], _U],
         cok: Callable[[_A, State[Iterable[_T], _U], ParseError], Any],
@@ -718,7 +790,7 @@ def token_prim_ex(
                             new_error_message(SysUnExpect(show_token(c)), s.state_pos)
                         )
 
-    return Parser(_un_parser)
+    return Parsec(_un_parser)
 
 
 # token :: (Stream s Identity t)
@@ -738,7 +810,7 @@ def token(
     show_token: Callable[[_T], str],
     tok_pos: Callable[[_T], SourcePos],
     test: Callable[[_T], Maybe[_A]],
-) -> Parser[Iterable[_T], _U, _A]:
+) -> Parsec[Iterable[_T], _U, _A]:
     return token_prim(show_token, lambda _, tok, ts: tok_pos(tok), test)
 
 
@@ -752,10 +824,398 @@ def unknown_error(
     return new_error_unknown(state.state_pos)
 
 
-# runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
-# {-# INLINABLE runParsecT #-}
-# runParsecT p s = unParser p s cok cerr eok eerr
-#     where cok a s' err = return . Consumed . return $ Ok a s' err
-#           cerr err = return . Consumed . return $ Error err
-#           eok a s' err = return . Empty . return $ Ok a s' err
-#           eerr err = return . Empty . return $ Error err
+# many :: ParsecT s u m a -> ParsecT s u m [a]
+# many p
+#   = do xs <- manyAccum (:) p
+#        return (reverse xs)
+
+
+def many(
+    p: Parsec[_S, _U, _A],
+) -> Parsec[_S, _U, Iterable[_A]]: ...
+
+
+# many1 :: ParsecT s u m a -> ParsecT s u m [a]
+# {-# INLINABLE many1 #-}
+# many1 p = do{ x <- p; xs <- many p; return (x:xs) }
+
+
+def many1(
+    p: Parsec[_S, _U, _A],
+) -> Parsec[_S, _U, Iterable[_A]]:
+    return Parsec.bind(
+        p, lambda x: Parsec.bind(many(p), lambda xs: Parsec.pure([x] + xs))
+    )
+
+
+# skipMany :: ParsecT s u m a -> ParsecT s u m ()
+# skipMany p
+#   = do _ <- manyAccum (\_ _ -> []) p
+#        return ()
+
+
+def skip_many(
+    p: Parsec[_S, _U, _A],
+) -> Parsec[_S, _U, None]:
+    return Parsec.bind(many_accum(lambda _0, _1: [], p), lambda _: Parsec.pure(None))
+
+
+# manyAccum :: (a -> [a] -> [a])
+#           -> ParsecT s u m a
+#           -> ParsecT s u m [a]
+# manyAccum acc p =
+#     ParsecT $ \s cok cerr eok _eerr ->
+#     let walk xs x s' _err =
+#             unParser p s'
+#               (seq xs $ walk $ acc x xs)  -- consumed-ok
+#               cerr                        -- consumed-err
+#               manyErr                     -- empty-ok
+#               (\e -> cok (acc x xs) s' e) -- empty-err
+#     in unParser p s (walk []) cerr manyErr (\e -> eok [] s e)
+
+
+def many_accum(
+    acc: Callable[[_A, Iterable[_A]], Iterable[_A]],
+    p: Parsec[_S, _U, _A],
+) -> Parsec[_S, _U, Iterable[_A]]:
+    def _un_parser(
+        s: State[_S, _U],
+        cok: Callable[[Iterable[_A], State[_S, _U], ParseError], Any],
+        cerr: Callable[[ParseError], Any],
+        eok: Callable[[Iterable[_A], State[_S, _U], ParseError], Any],
+        _eerr: Callable[[ParseError], Any],
+    ) -> Any:
+        def walk(
+            xs: Iterable[_A],
+            x: _A,
+            s_: State[_S, _U],
+            _err: ParseError,
+        ) -> Any:
+            return p.un_parser(
+                s_,
+                lambda x_, s_, err: walk(acc(x, xs), x_, s_, err),
+                cerr,
+                lambda _0, _1, _2: many_err(),
+                lambda e: cok(acc(x, xs), s_, e),
+            )
+
+        return p.un_parser(
+            s,
+            lambda x, s_, err: walk([], x, s_, err),
+            cerr,
+            lambda _0, _1, _2: many_err(),
+            lambda e: eok([], s, e),
+        )
+
+    return Parsec(_un_parser)
+
+
+def many_err() -> Any:
+    raise Exception(
+        "combinator 'many' is applied to a parser that accepts an empty string."
+    )
+
+
+# runPT :: (Stream s m t)
+#       => ParsecT s u m a -> u -> SourceName -> s -> m (Either ParseError a)
+# {-# INLINABLE runPT #-}
+# runPT p u name s
+#     = do res <- runParsecT p (State s (initialPos name) u)
+#          r <- parserReply res
+#          case r of
+#            Ok x _ _  -> return (Right x)
+#            Error err -> return (Left err)
+#     where
+#         parserReply res
+#             = case res of
+#                 Consumed r -> r
+#                 Empty    r -> r
+
+
+def run_pt(
+    p: Parsec[Iterable[_T], _U, _A],
+    u: _U,
+    name: str,
+    s: Iterable[_T],
+) -> Either[ParseError, _A]:
+    res = _run_parser_t(p, State(s, initial_pos(name), u))
+
+    def parser_reply(
+        res: MbConsumed[Reply[Iterable[_T], _U, _A]],
+    ) -> Reply[Iterable[_T], _U, _A]:
+        match res:
+            case Consumed(r):
+                return r
+            case Empty(r):
+                return r
+
+    r = parser_reply(res)
+
+    match r:
+        case Reply_Ok(x, _, _):
+            return x
+        case Reply_Error(err):
+            return err
+
+
+# runP :: (Stream s Identity t)
+#      => Parsec s u a -> u -> SourceName -> s -> Either ParseError a
+# runP p u name s = runIdentity $ runPT p u name s
+
+
+def run_p(
+    p: Parsec[Iterable[_T], _U, _A],
+    u: _U,
+    name: str,
+    s: Iterable[_T],
+) -> Either[ParseError, _A]:
+    return run_pt(p, u, name, s)
+
+
+# runParserT :: (Stream s m t)
+#            => ParsecT s u m a -> u -> SourceName -> s -> m (Either ParseError a)
+# runParserT = runPT
+
+
+# ! Maybe redundant
+
+
+def run_parser_t(
+    p: Parsec[Iterable[_T], _U, _A],
+    u: _U,
+    name: str,
+    s: Iterable[_T],
+) -> Either[ParseError, _A]:
+    return run_pt(p, u, name, s)
+
+
+# runParser :: (Stream s Identity t)
+#           => Parsec s u a -> u -> SourceName -> s -> Either ParseError a
+# runParser = runP
+
+# ! Maybe redundant
+
+
+def run_parser(
+    p: Parsec[Iterable[_T], _U, _A],
+    u: _U,
+    name: str,
+    s: Iterable[_T],
+) -> Either[ParseError, _A]:
+    return run_p(p, u, name, s)
+
+
+# parse :: (Stream s Identity t)
+#       => Parsec s () a -> SourceName -> s -> Either ParseError a
+# parse p = runP p ()
+
+# ! Maybe redundant
+
+
+def parse(
+    p: Parsec[Iterable[_T], None, _A],
+    name: str,
+    s: Iterable[_T],
+) -> Either[ParseError, _A]:
+    return run_p(p, None, name, s)
+
+
+# parseTest :: (Stream s Identity t, Show a)
+#           => Parsec s () a -> s -> IO ()
+# parseTest p input
+#     = case parse p "" input of
+#         Left err -> do putStr "parse error at "
+#                        print err
+#         Right x  -> print x
+
+
+def parse_test(
+    p: Parsec[Iterable[_T], None, _A],
+    input: Iterable[_T],
+) -> Io[None]:
+    match parse(p, "", input):
+        case ParseError(pos, msg):
+            return put_strln("parse error at " + str(pos))
+        case x:
+            return put_strln(str(x))
+
+
+# -- < Parser state combinators
+
+# -- | Returns the current source position. See also 'SourcePos'.
+
+# getPosition :: (Monad m) => ParsecT s u m SourcePos
+# getPosition = do state <- getParserState
+#                  return (statePos state)
+
+
+def get_position() -> Parsec[Iterable[_T], _U, SourcePos]:
+    # return Parser.pure(lambda s: s.state_pos)
+    return get_parser_state().and_then(lambda s: Parsec.pure(s.state_pos))
+
+
+# -- | Returns the current input
+
+# getInput :: (Monad m) => ParsecT s u m s
+# getInput = do state <- getParserState
+#               return (stateInput state)
+
+
+def get_input() -> Parsec[Iterable[_T], _U, Iterable[_T]]:
+    # return Parser.pure(lambda s: s.state_input)
+    return get_parser_state().and_then(lambda s: Parsec.pure(s.state_input))
+
+
+# -- | @setPosition pos@ sets the current source position to @pos@.
+
+# setPosition :: (Monad m) => SourcePos -> ParsecT s u m ()
+# setPosition pos
+#     = do _ <- updateParserState (\(State input _ user) -> State input pos user)
+#          return ()
+
+
+def set_position(pos: SourcePos) -> Parsec[Iterable[_T], _U, None]:
+    return update_parser_state(lambda s: State(s.state_input, pos, s.state_user)).then(
+        Parsec.pure(None)
+    )
+
+
+# -- | @setInput input@ continues parsing with @input@. The 'getInput' and
+# -- @setInput@ functions can for example be used to deal with #include
+# -- files.
+
+# setInput :: (Monad m) => s -> ParsecT s u m ()
+# setInput input
+#     = do _ <- updateParserState (\(State _ pos user) -> State input pos user)
+#          return ()
+
+
+def set_input(input: Iterable[_T]) -> Parsec[Iterable[_T], _U, None]:
+    return update_parser_state(lambda s: State(input, s.state_pos, s.state_user)).then(
+        Parsec.pure(None)
+    )
+
+
+# -- | Returns the full parser state as a 'State' record.
+
+# getParserState :: (Monad m) => ParsecT s u m (State s u)
+# getParserState = updateParserState id
+
+
+def get_parser_state() -> Parsec[Iterable[_T], _U, State[Iterable[_T], _U]]:
+    return update_parser_state(id)
+
+
+# -- | @setParserState st@ set the full parser state to @st@.
+
+# setParserState :: (Monad m) => State s u -> ParsecT s u m (State s u)
+# setParserState st = updateParserState (const st)
+
+
+def set_parser_state(
+    st: State[Iterable[_T], _U],
+) -> Parsec[Iterable[_T], _U, State[Iterable[_T], _U]]:
+    return update_parser_state(lambda _: st)
+
+
+# -- | @updateParserState f@ applies function @f@ to the parser state.
+
+# updateParserState :: (State s u -> State s u) -> ParsecT s u m (State s u)
+# updateParserState f =
+#     ParsecT $ \s _ _ eok _ ->
+#     let s' = f s
+#     in eok s' s' $ unknownError s'
+
+
+def update_parser_state(
+    f: Callable[[State[Iterable[_T], _U]], State[Iterable[_T], _U]],
+) -> Parsec[Iterable[_T], _U, State[Iterable[_T], _U]]:
+    def _un_parser(
+        s: State[Iterable[_T], _U],
+        _0: Any,
+        _1: Any,
+        eok: Callable[
+            [State[Iterable[_T], _U], State[Iterable[_T], _U], ParseError], Any
+        ],
+        _2: Any,
+    ) -> Any:
+        s_ = f(s)
+        return eok(s_, s_, unknown_error(s))
+
+    return Parsec(_un_parser)
+
+
+# -- < User state combinators
+
+# -- | Returns the current user state.
+
+# getState :: (Monad m) => ParsecT s u m u
+# getState = stateUser `liftM` getParserState
+
+
+def get_state() -> Parsec[Iterable[_T], _U, _U]:
+    return get_parser_state().and_then(lambda s: Parsec.pure(s.state_user))
+
+
+# -- | @putState st@ set the user state to @st@.
+
+# putState :: (Monad m) => u -> ParsecT s u m ()
+# putState u = do _ <- updateParserState $ \s -> s { stateUser = u }
+#                 return ()
+
+
+def put_state(
+    u: _U,
+) -> Parsec[Iterable[_T], _U, None]:
+    return update_parser_state(lambda s: State(s.state_input, s.state_pos, u)).then(
+        Parsec.pure(None)
+    )
+
+
+# -- | @modifyState f@ applies function @f@ to the user state. Suppose
+# -- that we want to count identifiers in a source, we could use the user
+# -- state as:
+# --
+# -- >  expr  = do{ x <- identifier
+# -- >            ; modifyState (+1)
+# -- >            ; return (Id x)
+# -- >            }
+
+# modifyState :: (Monad m) => (u -> u) -> ParsecT s u m ()
+# modifyState f = do _ <- updateParserState $ \s -> s { stateUser = f (stateUser s) }
+#                    return ()
+
+
+def modify_state(
+    f: Callable[[_U], _U],
+) -> Parsec[Iterable[_T], _U, None]:
+    def _f(s: State[Iterable[_T], _U]) -> State[Iterable[_T], _U]:
+        return State(s.state_input, s.state_pos, f(s.state_user))
+
+    return update_parser_state(_f).then(Parsec.pure(None))
+
+
+# -- XXX Compat
+
+# -- | An alias for putState for backwards compatibility.
+
+# setState :: (Monad m) => u -> ParsecT s u m ()
+# setState = putState
+
+
+def set_state(
+    u: _U,
+) -> Parsec[Iterable[_T], _U, None]:
+    return put_state(u)
+
+
+# -- | An alias for modifyState for backwards compatibility.
+
+# updateState :: (Monad m) => (u -> u) -> ParsecT s u m ()
+# updateState = modifyState
+
+
+def update_state(
+    f: Callable[[_U], _U],
+) -> Parsec[Iterable[_T], _U, None]:
+    return modify_state(f)
