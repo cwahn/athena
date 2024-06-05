@@ -1,4 +1,5 @@
 from __future__ import annotations
+from re import A
 from typing import Any, Callable, List, Protocol, Type, TypeVar
 
 
@@ -25,6 +26,8 @@ class Applicative(Functor[_A_co], Protocol[_A_co]):
 class Monad(Applicative[_A_co], Protocol[_A_co]):
     @staticmethod
     def bind(x: Any[_A], f: Callable[[_A], Any[_B]]) -> Any[_B]: ...
+    # m a -> (a -> m b) -> m b
+
 
 
 class Ord(Protocol):

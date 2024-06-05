@@ -1,10 +1,7 @@
 from __future__ import annotations
-from calendar import c
 from dataclasses import dataclass
-from math import e
 from typing import Any, Callable, Generic, Iterable, Protocol, Tuple, Type, TypeVar
 
-from networkx import line_graph
 
 from entoli.base.typeclass import _A, _B, _A_co, Monad
 from entoli.prelude import append, fst, snd, map
@@ -12,20 +9,36 @@ from entoli.prelude import append, fst, snd, map
 
 _S = TypeVar("_S")
 _U = TypeVar("_U")
-# _M = TypeVar("_M", bound=Monad)
+_M = TypeVar("_M", bound=Monad)
 _A = TypeVar("_A")
 _B = TypeVar("_B")
+
+# type _M[_B] = Monad[_B]
+
+
+# @dataclass
+# class Parsec(Generic[_S, _U, _M, _A]):
+#     un_parser: Callable[
+#         [
+#             State[_S, _U],  #
+#             Callable[[_A, State[_S, _U], ParseError], _M],  # consumed ok
+#             Callable[[ParseError], _M],  # consumed error
+#             Callable[[_A, State[_S, _U], ParseError], _M],  # empty ok
+#             Callable[[ParseError], _M],  # empty error
+#         ],
+#         _M,
+#     ]
 
 
 @dataclass
 class Parsec(Generic[_S, _U, _A]):
     un_parser: Callable[
         [
-            State[_S, _U],  #
-            Callable[[_A, State[_S, _U], ParseError], Any],  # consumed ok
-            Callable[[ParseError], Any],  # consumed error
-            Callable[[_A, State[_S, _U], ParseError], Any],  # empty ok
-            Callable[[ParseError], Any],  # empty error
+            State[_S, _U],
+            Callable[[_A, State[_S, _U], ParseError], Any],
+            Callable[[ParseError], Any],
+            Callable[[_A, State[_S, _U], ParseError], Any],
+            Callable[[ParseError], Any],
         ],
         Any,
     ]
@@ -78,7 +91,7 @@ type Reply[_S, _U, _A] = Reply_Ok[_S, _U, _A] | Reply_Error[_S, _U]
 
 @dataclass
 class Reply_Ok(Generic[_S, _U, _A]):
-    s: _S
+    a: _A
     state: State[_S, _U]
     err: ParseError
 
@@ -88,11 +101,21 @@ class Reply_Error(Generic[_S, _U]):
     err: ParseError
 
 
+# runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
+# {-# INLINABLE runParsecT #-}
+# runParsecT p s = unParser p s cok cerr eok eerr
+#     where cok a s' err = return . Consumed . return $ Ok a s' err
+#           cerr err = return . Consumed . return $ Error err
+#           eok a s' err = return . Empty . return $ Ok a s' err
+#           eerr err = return . Empty . return $ Error err
+
+
 def run_parser(
     parser: Parsec[_S, _U, _A],
     state: State[_S, _U],
-) -> Consumed[Reply[_S, _U, _A]]:
-    def consumed_ok(a, s, err):  # -> Consumed[Reply_Ok[Any, Any, Any]]:
+    # ) -> MbConsumed[_M[Reply[_S, _U, _A]]]:
+) -> MbConsumed[_M]:
+    def consumed_ok(a, s, err):
         return Consumed(Reply_Ok(s, a, err))
 
     def consumed_error(err):
@@ -125,7 +148,7 @@ def run_parser(
 
 
 def mk_parser_t(
-    k: Callable[[State[_S, _U]], Consumed[Reply[_S, _U, _A]]],
+    k: Callable[[State[_S, _U]], MbConsumed[Reply[_S, _U, _A]]],
 ) -> Parsec[_S, _U, _A]:
     def un_parser(
         s: State[_S, _U],
