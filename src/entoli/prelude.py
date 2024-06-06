@@ -578,11 +578,23 @@ get_str = Io(input)
 # Additional functions
 
 
+# def uncons(xs: Iterable[_A]) -> Maybe[Tuple[_A, Iterable[_A]]]:
+#     try:
+#         head, *tail = xs
+#         return Just((head, tail))
+#     except ValueError:
+#         return Nothing()
+
+
 def uncons(xs: Iterable[_A]) -> Maybe[Tuple[_A, Iterable[_A]]]:
+    iterator = iter(xs)
     try:
-        head, *tail = xs
+        head = next(iterator)
+        tail = Seq(
+            lambda: (item for item in iterator)
+        )  # Generator expression for laziness
         return Just((head, tail))
-    except ValueError:
+    except StopIteration:
         return Nothing()
 
 
@@ -597,6 +609,10 @@ def _test_uncons():
     assert uncons("a") == Just(("a", []))
     assert uncons("ab") == Just(("a", ["b"]))
     assert uncons("abc") == Just(("a", ["b", "c"]))
+    assert uncons([""]) == Just(("", []))
+    assert uncons(["a"]) == Just(("a", []))
+    assert uncons(["a", "b"]) == Just(("a", ["b"]))
+    assert uncons(["a", "b", "c"]) == Just(("a", ["b", "c"]))
 
 
 def filter_map(f: Callable[[_A], Maybe[_B]], xs: Iterable[_A]) -> Iterable[_B]:
