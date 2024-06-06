@@ -48,6 +48,18 @@ def _test_one_of():
 def none_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
     return satisfy(lambda c: not elem(c, cs))
 
+def _test_none_of():
+    assert parse(none_of("ab"), "", "") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("")]
+    )
+    assert parse(none_of("ab"), "", "a") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("a")]
+    )
+    assert parse(none_of("ab"), "", "b") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("b")]
+    )
+    assert parse(none_of("ab"), "", "c") == "c"
+
 
 # -- | Skips /zero/ or more white space characters. See also 'skipMany'.
 
