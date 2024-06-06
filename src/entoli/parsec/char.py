@@ -48,6 +48,7 @@ def _test_one_of():
 def none_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
     return satisfy(lambda c: not elem(c, cs))
 
+
 def _test_none_of():
     assert parse(none_of("ab"), "", "") == ParseError(
         SourcePos("", 1, 1), [UnExpect("")]
@@ -70,6 +71,13 @@ def _test_none_of():
 
 def spaces() -> ParsecT[Iterable[str], _U, None]:
     return skip_many(space())
+
+
+def _test_spaces():
+    assert parse(spaces(), "", "") == None
+    assert parse(spaces(), "", " ") == None
+    assert parse(spaces(), "", "  ") == None
+    assert parse(spaces(), "", "a") == None
 
 
 # -- | Parses a white space character (any character which satisfies 'isSpace')
