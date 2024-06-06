@@ -258,10 +258,40 @@ def update_pos_char(
 
 type Message = SysUnExpect | UnExpect | Expect | RawMessage
 
-SysUnExpect = NewType("SysUnExpect", str)
-UnExpect = NewType("UnExpect", str)
-Expect = NewType("Expect", str)
-RawMessage = NewType("RawMessage", str)
+# SysUnExpect = NewType("SysUnExpect", str)
+# UnExpect = NewType("UnExpect", str)
+# Expect = NewType("Expect", str)
+# RawMessage = NewType("RawMessage", str)
+
+
+@dataclass(frozen=True)
+class SysUnExpect:
+    value: str
+
+
+@dataclass(frozen=True)
+class UnExpect:
+    value: str
+
+
+@dataclass(frozen=True)
+class Expect:
+    value: str
+
+
+@dataclass(frozen=True)
+class RawMessage:
+    value: str
+
+
+class _TestMessage:
+    def _test_equality(self):
+        assert not (SysUnExpect("a") == UnExpect("a"))
+
+        assert SysUnExpect("a") == SysUnExpect("a")
+        assert UnExpect("a") == UnExpect("a")
+        assert Expect("a") == Expect("a")
+        assert RawMessage("a") == RawMessage("a")
 
 
 @dataclass

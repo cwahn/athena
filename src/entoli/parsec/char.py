@@ -3,6 +3,7 @@ from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.parsec.prim import (
     ParsecT,
     SourcePos,
+    SysUnExpect,
     UnExpect,
     parse,
     skip_many,
@@ -25,12 +26,12 @@ def one_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
 
 def _test_one_of():
     assert parse(one_of("ab"), "", "") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("")]
+        SourcePos("", 1, 1), [SysUnExpect("")]
     )
     assert parse(one_of("ab"), "", "a") == "a"
     assert parse(one_of("ab"), "", "b") == "b"
     assert parse(one_of("ab"), "", "c") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("c")]
+        SourcePos("", 1, 1), [SysUnExpect("c")]
     )
 
 
@@ -51,13 +52,13 @@ def none_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
 
 def _test_none_of():
     assert parse(none_of("ab"), "", "") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("")]
+        SourcePos("", 1, 1), [SysUnExpect("")]
     )
     assert parse(none_of("ab"), "", "a") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("a")]
+        SourcePos("", 1, 1), [SysUnExpect("a")]
     )
     assert parse(none_of("ab"), "", "b") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("b")]
+        SourcePos("", 1, 1), [SysUnExpect("b")]
     )
     assert parse(none_of("ab"), "", "c") == "c"
 
@@ -93,9 +94,9 @@ def space() -> ParsecT[Iterable[str], _U, str]:
 
 
 def _test_space():
-    assert parse(space(), "", "") == ParseError(SourcePos("", 1, 1), [UnExpect("")])
+    assert parse(space(), "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
     assert parse(space(), "", " ") == " "
-    assert parse(space(), "", "a") == ParseError(SourcePos("", 1, 1), [UnExpect("a")])
+    assert parse(space(), "", "a") == ParseError(SourcePos("", 1, 1), [SysUnExpect("a")])
 
 
 # -- | Parses a newline character (\'\\n\'). Returns a newline character.
@@ -108,13 +109,12 @@ def _test_space():
 def new_line() -> ParsecT[Iterable[str], _U, str]:
     return char("\n")
 
+
 def _test_new_line():
-    assert parse(new_line(), "", "") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("")]
-    )
+    assert parse(new_line(), "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
     assert parse(new_line(), "", "\n") == "\n"
     assert parse(new_line(), "", "a") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("a")]
+        SourcePos("", 1, 1), [SysUnExpect("a")]
     )
 
 
@@ -128,6 +128,16 @@ def _test_new_line():
 
 def crlf() -> ParsecT[Iterable[str], _U, str]:
     return char("\r").then(char("\n"))
+
+
+def _test_crlf():
+    assert parse(crlf(), "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(crlf(), "", "\r\n") == "\n"
+    assert parse(crlf(), "", "\r") == ParseError(SourcePos("", 1, 2), [SysUnExpect("")])
+    assert parse(crlf(), "", "\n") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("\n")]
+    )
+    assert parse(crlf(), "", "a") == ParseError(SourcePos("", 1, 1), [SysUnExpect("a")])
 
 
 # -- | Parses a CRLF (see 'crlf') or LF (see 'newline') end-of-line.
