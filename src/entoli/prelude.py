@@ -589,11 +589,7 @@ get_str = Io(input)
 def uncons(xs: Iterable[_A]) -> Maybe[Tuple[_A, Iterable[_A]]]:
     iterator = iter(xs)
     try:
-        head = next(iterator)
-        tail = Seq(
-            lambda: (item for item in iterator)
-        )  # Generator expression for laziness
-        return Just((head, tail))
+        return Just((next(iterator), Seq(lambda: (i for i in iterator))))
     except StopIteration:
         return Nothing()
 

@@ -27,3 +27,5 @@ class Identity(Generic[_A], Monad[_A]):
     @staticmethod
     def bind(x: "Identity[_A]", f: Callable[[_A], "Identity[_B]"]) -> "Identity[_B]":
         return f(x.run)
+
+
