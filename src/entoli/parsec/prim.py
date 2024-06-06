@@ -17,7 +17,7 @@ from entoli.base import maybe
 from entoli.base.either import Either
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
-from entoli.base.typeclass import _A, _B, _A_co, Functor, Monad
+from entoli.base.typeclass import _A, _B, _A_co, Alternative, Functor, Monad
 from entoli.prelude import (
     append,
     fst,
@@ -57,7 +57,7 @@ _T = TypeVar("_T")
 
 
 @dataclass
-class ParsecT(Generic[_S, _U, _A], Monad[_A]):
+class ParsecT(Generic[_S, _U, _A], Monad[_A], Alternative[_A]):
     un_parser: Callable[
         [
             State[_S, _U],
@@ -91,6 +91,15 @@ class ParsecT(Generic[_S, _U, _A], Monad[_A]):
     ) -> "ParsecT[_S, _U, _B]":
         return parser_bind(x, f)
 
+    @staticmethod
+    def empty() -> "ParsecT[_S, _U, _A]":
+        return ParsecT(lambda s, _0, _1, _2, eerr: eerr(unknown_error(s)))
+
+    def or_else(self, other: "ParsecT[_S, _U, _A]") -> "ParsecT[_S, _U, _A]":
+        return ParsecT(
+            lambda s, _0, cerr, _1, eerr: self.un_parser(s, _0, cerr, _1, eerr)
+        )
+
     def map(self, f: Callable[[_A], _B]) -> "ParsecT[_S, _U, _B]":
         return ParsecT.fmap(f, self)
 
@@ -101,6 +110,14 @@ class ParsecT(Generic[_S, _U, _A], Monad[_A]):
 
     def then(self, x: "ParsecT[_S, _U, _B]") -> "ParsecT[_S, _U, _B]":
         return ParsecT.bind(self, lambda _: x)
+
+    def some(self) -> "ParsecT[_S, _U, Iterable[_A]]":
+        return ParsecT.ap(
+            ParsecT.fmap(lambda x: lambda xs: [x] + xs, self), self.many()
+        )
+
+    def many(self) -> "ParsecT[_S, _U, Iterable[_A]]":
+        return self.some().or_else(ParsecT.pure([]))
 
 
 # runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))

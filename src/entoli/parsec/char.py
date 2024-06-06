@@ -150,11 +150,15 @@ def _test_crlf():
 # -- > endOfLine = newline <|> crlf
 # --
 
+
 # endOfLine :: (Stream s m Char) => ParsecT s u m Char
 # {-# INLINABLE endOfLine #-}
 # endOfLine           = newline <|> crlf       <?> "new-line"
 
 # -- | Parses a tab character (\'\\t\'). Returns a tab character.
+
+
+
 
 # tab :: (Stream s m Char) => ParsecT s u m Char
 # {-# INLINABLE tab #-}
