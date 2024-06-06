@@ -133,21 +133,7 @@ class ParsecT(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
         return ParsecT(lambda s, _0, _1, _2, eerr: eerr(unknown_error(s)))
 
     def or_else(self, other: "ParsecT[_S, _U, _A]") -> "ParsecT[_S, _U, _A]":
-        return ParsecT(
-            lambda s, cok, cerr, eok, eerr: self.un_parser(
-                s,
-                cok,
-                lambda err: other.un_parser(
-                    s,
-                    cok,
-                    lambda err_: cerr(merge_error(err, err_)),
-                    eok,
-                    eerr,
-                ),
-                eok,
-                eerr,
-            )
-        )
+        return self.mplus(other)
 
     def map(self, f: Callable[[_A], _B]) -> "ParsecT[_S, _U, _B]":
         return ParsecT.fmap(f, self)

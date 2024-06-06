@@ -2,6 +2,7 @@ from calendar import c
 from typing import Callable, Iterable, TypeVar
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.parsec.prim import (
+    Expect,
     ParsecT,
     SourcePos,
     SysUnExpect,
@@ -9,12 +10,20 @@ from entoli.parsec.prim import (
     parse,
     skip_many,
     token_prim,
+    tokens,
     update_pos_char,
     ParseError,
 )
-from entoli.prelude import elem
+from entoli.prelude import concat, elem
 
 _U = TypeVar("_U")
+
+# -- | The parser @satisfy f@ succeeds for any character for which the
+# -- supplied function @f@ returns 'True'. Returns the character that is
+# -- actually parsed.
+
+# -- >  digit     = satisfy isDigit
+# -- >  oneOf cs  = satisfy (\c -> c `elem` cs)
 
 # satisfy :: (Stream s m Char) => (Char -> Bool) -> ParsecT s u m Char
 # {-# INLINABLE satisfy #-}
@@ -208,23 +217,25 @@ def _test_crlf():
 # endOfLine           = newline <|> crlf       <?> "new-line"
 
 
-def end_of_line() -> ParsecT[Iterable[str], _U, str]:
-    return new_line.or_else(crlf)
+# def end_of_line() -> ParsecT[Iterable[str], _U, str]:
+#     return new_line.or_else(crlf)
+
+end_of_line = new_line.or_else(crlf)
 
 
 # ! temp Error
-# def _test_end_of_line():
-#     assert parse(end_of_line(), "", "") == ParseError(
-#         SourcePos("", 1, 1), [SysUnExpect("")]
-#     )
-#     assert parse(end_of_line(), "", "\n") == "\n"
-#     assert parse(end_of_line(), "", "\r\n") == "\n"
-#     assert parse(end_of_line(), "", "\r") == ParseError(
-#         SourcePos("", 1, 2), [SysUnExpect("")]
-#     )
-#     assert parse(end_of_line(), "", "a") == ParseError(
-#         SourcePos("", 1, 1), [SysUnExpect("a")]
-#     )
+def _test_end_of_line():
+    assert parse(end_of_line, "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value=""), SysUnExpect(value="")]
+    )
+    assert parse(end_of_line, "", "\n") == "\n"
+    assert parse(end_of_line, "", "\r\n") == "\n"
+    assert parse(end_of_line, "", "\r") == ParseError(
+        SourcePos("", 1, 2), [SysUnExpect("")]
+    )
+    assert parse(end_of_line, "", "a") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="a"), SysUnExpect(value="a")]
+    )
 
 
 # -- | Parses a tab character (\'\\t\'). Returns a tab character.
@@ -288,13 +299,19 @@ def _test_lower():
 
 alpha_num = satisfy(str.isalnum)
 
+
 def _test_alpha_num():
-    assert parse(alpha_num, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(alpha_num, "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("")]
+    )
     assert parse(alpha_num, "", "a") == "a"
     assert parse(alpha_num, "", "A") == "A"
     assert parse(alpha_num, "", "1") == "1"
-    assert parse(alpha_num, "", "٤") == "٤"
-    assert parse(alpha_num, "", " ") == ParseError(SourcePos("", 1, 1), [SysUnExpect(" ")])
+    assert parse(alpha_num, "", "٤") == "٤"  # ?
+    assert parse(alpha_num, "", " ") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(" ")]
+    )
+
 
 # -- | Parses an alphabetic Unicode characters (lower-case, upper-case and title-case letters,
 # -- plus letters of caseless scripts and modifiers letters according to 'isAlpha').
@@ -304,11 +321,32 @@ def _test_alpha_num():
 # {-# INLINABLE letter #-}
 # letter              = satisfy isAlpha       <?> "letter"
 
+letter = satisfy(str.isalpha)
+
+
+def _test_letter():
+    assert parse(letter, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(letter, "", "a") == "a"
+    assert parse(letter, "", "A") == "A"
+    assert parse(letter, "", "1") == ParseError(SourcePos("", 1, 1), [SysUnExpect("1")])
+    assert parse(letter, "", "٤") == ParseError(SourcePos("", 1, 1), [SysUnExpect("٤")])
+    assert parse(letter, "", " ") == ParseError(SourcePos("", 1, 1), [SysUnExpect(" ")])
+
+
 # -- | Parses an ASCII digit. Returns the parsed character.
 
 # digit :: (Stream s m Char) => ParsecT s u m Char
 # {-# INLINABLE digit #-}
 # digit               = satisfy isDigit       <?> "digit"
+
+digit = satisfy(str.isdigit)
+
+
+def _test_digit():
+    assert parse(digit, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(digit, "", "1") == "1"
+    assert parse(digit, "", "a") == ParseError(SourcePos("", 1, 1), [SysUnExpect("a")])
+
 
 # -- | Parses a hexadecimal digit (a digit or a letter between \'a\' and
 # -- \'f\' or \'A\' and \'F\'). Returns the parsed character.
@@ -316,6 +354,26 @@ def _test_alpha_num():
 # hexDigit :: (Stream s m Char) => ParsecT s u m Char
 # {-# INLINABLE hexDigit #-}
 # hexDigit            = satisfy isHexDigit    <?> "hexadecimal digit"
+
+
+def _is_hex_digit(c: str) -> bool:
+    return "0" <= c <= "9" or "a" <= c <= "f" or "A" <= c <= "F"
+
+
+hex_digit = satisfy(_is_hex_digit)
+
+
+def _test_hex_digit():
+    assert parse(hex_digit, "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("")]
+    )
+    assert parse(hex_digit, "", "1") == "1"
+    assert parse(hex_digit, "", "a") == "a"
+    assert parse(hex_digit, "", "A") == "A"
+    assert parse(hex_digit, "", "g") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("g")]
+    )
+
 
 # -- | Parses an octal digit (a character between \'0\' and \'7\'). Returns
 # -- the parsed character.
@@ -325,18 +383,38 @@ def _test_alpha_num():
 # octDigit            = satisfy isOctDigit    <?> "octal digit"
 
 
+def _is_oct_digit(c: str) -> bool:
+    return "0" <= c <= "7"
+
+
+oct_digit = satisfy(_is_oct_digit)
+
+
+def _test_oct_digit():
+    assert parse(oct_digit, "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("")]
+    )
+    assert parse(oct_digit, "", "1") == "1"
+    assert parse(oct_digit, "", "7") == "7"
+    assert parse(oct_digit, "", "8") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("8")]
+    )
+
+
 # -- | This parser succeeds for any character. Returns the parsed character.
 
 # anyChar :: (Stream s m Char) => ParsecT s u m Char
 # {-# INLINABLE anyChar #-}
 # anyChar             = satisfy (const True)
 
-# -- | The parser @satisfy f@ succeeds for any character for which the
-# -- supplied function @f@ returns 'True'. Returns the character that is
-# -- actually parsed.
+any_char = satisfy(lambda _: True)
 
-# -- >  digit     = satisfy isDigit
-# -- >  oneOf cs  = satisfy (\c -> c `elem` cs)
+
+def _test_any_char():
+    assert parse(any_char, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(any_char, "", "a") == "a"
+    assert parse(any_char, "", "1") == "1"
+    assert parse(any_char, "", " ") == " "
 
 
 # -- | @'string' s@ parses a sequence of characters given by @s@. Returns
@@ -351,6 +429,24 @@ def _test_alpha_num():
 # {-# INLINABLE string #-}
 # string s            = tokens show updatePosString s
 
+
+def string(s: str) -> ParsecT[Iterable[str], _U, str]:
+    return tokens(
+        lambda cs: "".join(cs), lambda pos, cs: update_pos_char(pos, "".join(cs)), s
+    ).map(lambda cs: "".join(cs))
+
+
+def _test_string():
+    assert parse(string("abc"), "", "") == ParseError(
+        SourcePos("", 1, 1), [Expect(value="abc"), SysUnExpect(value="")]
+    )
+    assert parse(string("abc"), "", "abc") == "abc"
+    assert parse(string("abc"), "", "abcd") == "abc"
+    assert parse(string("abc"), "", "ab") == ParseError(
+        SourcePos("", 1, 1), [Expect(value="abc"), SysUnExpect(value="")]
+    )
+
+
 # -- | @'string'' s@ parses a sequence of characters given by @s@.
 # -- Doesn't consume matching prefix.
 # --
@@ -362,3 +458,20 @@ def _test_alpha_num():
 # string' :: (Stream s m Char) => String -> ParsecT s u m String
 # {-# INLINABLE string' #-}
 # string' s            = tokens' show updatePosString s
+
+
+def string_(s: str) -> ParsecT[Iterable[str], _U, str]:
+    return tokens(
+        lambda cs: "".join(cs), lambda pos, cs: update_pos_char(pos, "".join(cs)), s
+    ).map(lambda cs: "".join(cs))
+
+
+def _test_string_():
+    assert parse(string_("abc"), "", "") == ParseError(
+        SourcePos("", 1, 1), [Expect(value="abc"), SysUnExpect(value="")]
+    )
+    assert parse(string_("abc"), "", "abc") == "abc"
+    assert parse(string_("abc"), "", "abcd") == "abc"
+    assert parse(string_("abc"), "", "ab") == ParseError(
+        SourcePos("", 1, 1), [Expect(value="abc"), SysUnExpect(value="")]
+    )
