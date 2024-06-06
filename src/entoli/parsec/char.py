@@ -226,8 +226,11 @@ def _test_crlf():
 def char(c: str) -> ParsecT[Iterable[str], _U, str]:
     return satisfy(lambda x: x == c)
 
+
 def _test_char():
-    assert parse(char("a"), "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(char("a"), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("")]
+    )
     assert parse(char("a"), "", "a") == "a"
     assert parse(char("a"), "", "b") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect("b")]
@@ -259,6 +262,16 @@ def satisfy(f: Callable[[str], bool]) -> ParsecT[Iterable[str], _U, str]:
         lambda c: str(c),
         lambda pos, c, cs: update_pos_char(pos, c),
         lambda c: Just(c) if f(c) else Nothing(),
+    )
+
+
+def _test_satisfy():
+    assert parse(satisfy(lambda x: x == "a"), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("")]
+    )
+    assert parse(satisfy(lambda x: x == "a"), "", "a") == "a"
+    assert parse(satisfy(lambda x: x == "a"), "", "b") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("b")]
     )
 
 
