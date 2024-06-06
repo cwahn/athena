@@ -91,6 +91,15 @@ def _test_spaces():
 def space() -> ParsecT[Iterable[str], _U, str]:
     return satisfy(str.isspace)
 
+def _test_space():
+    assert parse(space(), "", "") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("")]
+    )
+    assert parse(space(), "", " ") == " "
+    assert parse(space(), "", "a") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("a")]
+    )
+
 
 # -- | Parses a newline character (\'\\n\'). Returns a newline character.
 
