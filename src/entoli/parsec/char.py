@@ -250,6 +250,15 @@ def _test_tab():
 # {-# INLINABLE upper #-}
 # upper               = satisfy isUpper       <?> "uppercase letter"
 
+upper = satisfy(str.isupper)
+
+
+def _test_upper():
+    assert parse(upper, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(upper, "", "A") == "A"
+    assert parse(upper, "", "a") == ParseError(SourcePos("", 1, 1), [SysUnExpect("a")])
+
+
 # -- | Parses a lower case character (according to 'isLower').
 # -- Returns the parsed character.
 
