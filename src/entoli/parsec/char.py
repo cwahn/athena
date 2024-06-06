@@ -96,7 +96,9 @@ def space() -> ParsecT[Iterable[str], _U, str]:
 def _test_space():
     assert parse(space(), "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
     assert parse(space(), "", " ") == " "
-    assert parse(space(), "", "a") == ParseError(SourcePos("", 1, 1), [SysUnExpect("a")])
+    assert parse(space(), "", "a") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("a")]
+    )
 
 
 # -- | Parses a newline character (\'\\n\'). Returns a newline character.
@@ -111,7 +113,9 @@ def new_line() -> ParsecT[Iterable[str], _U, str]:
 
 
 def _test_new_line():
-    assert parse(new_line(), "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(new_line(), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("")]
+    )
     assert parse(new_line(), "", "\n") == "\n"
     assert parse(new_line(), "", "a") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect("a")]
@@ -221,6 +225,13 @@ def _test_crlf():
 
 def char(c: str) -> ParsecT[Iterable[str], _U, str]:
     return satisfy(lambda x: x == c)
+
+def _test_char():
+    assert parse(char("a"), "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(char("a"), "", "a") == "a"
+    assert parse(char("a"), "", "b") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("b")]
+    )
 
 
 # -- | This parser succeeds for any character. Returns the parsed character.
