@@ -1,8 +1,5 @@
 from __future__ import annotations
-from ast import mod
 from dataclasses import dataclass
-from re import I, sub
-from types import _Fn
 from typing import (
     Any,
     Callable,
@@ -15,17 +12,13 @@ from typing import (
     TypeVar,
 )
 
-from networkx import dfs_edges
-from requests import put
 
-
-from build.lib.entoli.prelude import foldl, head, put_strln, tail, id
 from entoli.base import maybe
 from entoli.base.either import Either
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.typeclass import _A, _B, _A_co, Functor, Monad
-from entoli.prelude import append, fst, snd, map
+from entoli.prelude import append, fst, snd, map, foldl, head, put_strln, tail, id, null
 
 
 _S = TypeVar("_S")
@@ -39,18 +32,16 @@ _T = TypeVar("_T")
 # type _M[_B] = Monad[_B]
 
 
-# @dataclass
-# class Parsec(Generic[_S, _U, _M, _A]):
-#     un_parser: Callable[
-#         [
-#             State[_S, _U],  #
-#             Callable[[_A, State[_S, _U], ParseError], _M],  # consumed ok
-#             Callable[[ParseError], _M],  # consumed error
-#             Callable[[_A, State[_S, _U], ParseError], _M],  # empty ok
-#             Callable[[ParseError], _M],  # empty error
-#         ],
-#         _M,
-#     ]
+# newtype ParsecT s u m a
+#     = ParsecT {unParser :: forall b .
+#                  State s u
+#               -> (a -> State s u -> ParseError -> m b) -- consumed ok
+#               -> (ParseError -> m b)                   -- consumed err
+#               -> (a -> State s u -> ParseError -> m b) -- empty ok
+#               -> (ParseError -> m b)                   -- empty err
+#               -> m b
+#              }
+#      deriving ( Typeable )
 
 
 @dataclass
@@ -105,24 +96,23 @@ class Parsec(Generic[_S, _U, _A], Monad[_A]):
 #           eerr err = return . Empty . return $ Error err
 
 
-def _run_parser_t(
+def run_parsec_t(
     parser: Parsec[_S, _U, _A],
     state: State[_S, _U],
-    # ) -> MbConsumed[_M[Reply[_S, _U, _A]]]:
 ) -> MbConsumed[Reply[_S, _U, _A]]:
-    def consumed_ok(a, s, err):
-        return Consumed(Reply_Ok(s, a, err))
+    def cok(a, s_, err):
+        return Consumed(Reply_Ok(a, s_, err))
 
-    def consumed_error(err):
+    def cerr(err):
         return Consumed(Reply_Error(err))
 
-    def empty_ok(a, s, err):
-        return Empty(Reply_Ok(s, a, err))
+    def eok(a, s_, err):
+        return Empty(Reply_Ok(a, s_, err))
 
-    def empty_error(err):
+    def eerr(err):
         return Empty(Reply_Error(err))
 
-    return parser.un_parser(state, consumed_ok, consumed_error, empty_ok, empty_error)
+    return parser.un_parser(state, cok, cerr, eok, eerr)
 
 
 # mkPT :: Monad m => (State s u -> m (Consumed (m (Reply s u a)))) -> ParsecT s u m a
@@ -492,11 +482,10 @@ def parser_bind(
 
 
 def uncons(xs: Iterable[_T]) -> Maybe[Tuple[_T, Iterable[_T]]]:
-    match xs:
-        case []:
-            return Nothing()
-        case _:
-            return Just((head(xs), tail(xs)))
+    if null(xs):
+        return Nothing()
+    else:
+        return Just((head(xs), tail(xs)))
 
 
 # tokens :: (Stream s m t, Eq t)
@@ -550,7 +539,6 @@ def tokens(
             toks = tail(ts)
 
             def _un_parser(
-                # s: State[_S, _U],
                 s: State[Iterable[_T], _U],
                 cok: Callable[[Iterable[_T], State[Iterable[_T], _U], ParseError], Any],
                 cerr: Callable[[ParseError], Any],
@@ -938,7 +926,7 @@ def run_pt(
     name: str,
     s: Iterable[_T],
 ) -> Either[ParseError, _A]:
-    res = _run_parser_t(p, State(s, initial_pos(name), u))
+    res = run_parsec_t(p, State(s, initial_pos(name), u))
 
     def parser_reply(
         res: MbConsumed[Reply[Iterable[_T], _U, _A]],

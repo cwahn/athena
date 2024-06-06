@@ -260,6 +260,10 @@ def null(xs: Iterable[_A]) -> bool:
 def _test_null():
     assert null([])
     assert not null([1])
+    assert null({})
+    assert not null({1: 2})
+    assert null("")
+    assert not null("a")
 
 
 def length(xs: Iterable[_A]) -> int:
@@ -572,6 +576,27 @@ get_str = Io(input)
 
 
 # Additional functions
+
+
+def uncons(xs: Iterable[_A]) -> Maybe[Tuple[_A, Iterable[_A]]]:
+    try:
+        head, *tail = xs
+        return Just((head, tail))
+    except ValueError:
+        return Nothing()
+
+
+def _test_uncons():
+    assert uncons([]) == Nothing()
+    assert uncons([1]) == Just((1, []))
+    assert uncons([1, 2]) == Just((1, [2]))
+    assert uncons({}) == Nothing()
+    assert uncons({1: 2}) == Just((1, []))
+    assert uncons({1: 2, 3: 4}) == Just((1, [3]))
+    assert uncons("") == Nothing()
+    assert uncons("a") == Just(("a", []))
+    assert uncons("ab") == Just(("a", ["b"]))
+    assert uncons("abc") == Just(("a", ["b", "c"]))
 
 
 def filter_map(f: Callable[[_A], Maybe[_B]], xs: Iterable[_A]) -> Iterable[_B]:

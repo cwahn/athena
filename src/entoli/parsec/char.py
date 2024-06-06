@@ -1,6 +1,15 @@
 from typing import Callable, Iterable, TypeVar
 from entoli.base.maybe import Just, Maybe, Nothing
-from entoli.parsec.prim import Parsec, token_prim, update_pos_char
+from entoli.parsec.prim import (
+    Parsec,
+    SourcePos,
+    UnExpect,
+    parse,
+    skip_many,
+    token_prim,
+    update_pos_char,
+    ParseError,
+)
 from entoli.prelude import elem
 
 _U = TypeVar("_U")
@@ -14,6 +23,16 @@ def one_of(cs: str) -> Parsec[Iterable[str], _U, str]:
     return satisfy(lambda c: elem(c, cs))
 
 
+def _test_one_of():
+    assert parse(one_of("abc"), "", "") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("")]
+    )
+    assert parse(one_of("abc"), "", "a") == "a"
+    assert parse(one_of("abc"), "", "b") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("b")]
+    )
+
+
 # -- | As the dual of 'oneOf', @noneOf cs@ succeeds if the current
 # -- character /not/ in the supplied list of characters @cs@. Returns the
 # -- parsed character.
@@ -24,11 +43,21 @@ def one_of(cs: str) -> Parsec[Iterable[str], _U, str]:
 # {-# INLINABLE noneOf #-}
 # noneOf cs           = satisfy (\c -> not (elem c cs))
 
+
+def none_of(cs: str) -> Parsec[Iterable[str], _U, str]:
+    return satisfy(lambda c: not elem(c, cs))
+
+
 # -- | Skips /zero/ or more white space characters. See also 'skipMany'.
 
 # spaces :: (Stream s m Char) => ParsecT s u m ()
 # {-# INLINABLE spaces #-}
 # spaces              = skipMany space        <?> "white space"
+
+
+def spaces() -> Parsec[Iterable[str], _U, None]:
+    return skip_many(space())
+
 
 # -- | Parses a white space character (any character which satisfies 'isSpace')
 # -- Returns the parsed character.
@@ -37,11 +66,21 @@ def one_of(cs: str) -> Parsec[Iterable[str], _U, str]:
 # {-# INLINABLE space #-}
 # space               = satisfy isSpace       <?> "space"
 
+
+def space() -> Parsec[Iterable[str], _U, str]:
+    return satisfy(str.isspace)
+
+
 # -- | Parses a newline character (\'\\n\'). Returns a newline character.
 
 # newline :: (Stream s m Char) => ParsecT s u m Char
 # {-# INLINABLE newline #-}
 # newline             = char '\n'             <?> "lf new-line"
+
+
+def new_line() -> Parsec[Iterable[str], _U, str]:
+    return char("\n")
+
 
 # -- | Parses a carriage return character (\'\\r\') followed by a newline character (\'\\n\').
 # -- Returns a newline character.
@@ -49,6 +88,11 @@ def one_of(cs: str) -> Parsec[Iterable[str], _U, str]:
 # crlf :: (Stream s m Char) => ParsecT s u m Char
 # {-# INLINABLE crlf #-}
 # crlf                = char '\r' *> char '\n' <?> "crlf new-line"
+
+
+def crlf() -> Parsec[Iterable[str], _U, str]:
+    return char("\r").then(char("\n"))
+
 
 # -- | Parses a CRLF (see 'crlf') or LF (see 'newline') end-of-line.
 # -- Returns a newline character (\'\\n\').
@@ -127,6 +171,11 @@ def one_of(cs: str) -> Parsec[Iterable[str], _U, str]:
 # char :: (Stream s m Char) => Char -> ParsecT s u m Char
 # {-# INLINABLE char #-}
 # char c              = satisfy (==c)  <?> show [c]
+
+
+def char(c: str) -> Parsec[Iterable[str], _U, str]:
+    return satisfy(lambda x: x == c)
+
 
 # -- | This parser succeeds for any character. Returns the parsed character.
 

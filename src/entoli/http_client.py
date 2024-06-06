@@ -3,7 +3,7 @@ from calendar import c
 from enum import Enum
 from http.client import HTTPConnection, HTTPResponse
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Literal
 from entoli.base.io import Io
 
@@ -33,7 +33,8 @@ def close_conn(conn: HTTPConnection) -> Io[None]:
 @dataclass
 class HttpSession:
     conn: HTTPConnection
-    cookies: Io[Dict[str, str]] = Io(lambda: {})
+    # cookies: Io[Dict[str, str]] = Io(lambda: {})
+    cookies: Io[Dict[str, str]] = field(default_factory=lambda: Io(lambda: {}))
 
 
 def get_session(host: str, port: int = 80) -> Io[HttpSession]:
