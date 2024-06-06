@@ -268,10 +268,12 @@ def _test_upper():
 
 lower = satisfy(str.islower)
 
+
 def _test_lower():
     assert parse(lower, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
     assert parse(lower, "", "a") == "a"
     assert parse(lower, "", "A") == ParseError(SourcePos("", 1, 1), [SysUnExpect("A")])
+
 
 # -- | Parses a alphabetic or numeric Unicode characters
 # -- according to 'isAlphaNum'. Returns the parsed character.
@@ -283,6 +285,16 @@ def _test_lower():
 # alphaNum :: (Stream s m Char => ParsecT s u m Char)
 # {-# INLINABLE alphaNum #-}
 # alphaNum            = satisfy isAlphaNum    <?> "letter or digit"
+
+alpha_num = satisfy(str.isalnum)
+
+def _test_alpha_num():
+    assert parse(alpha_num, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(alpha_num, "", "a") == "a"
+    assert parse(alpha_num, "", "A") == "A"
+    assert parse(alpha_num, "", "1") == "1"
+    assert parse(alpha_num, "", "٤") == "٤"
+    assert parse(alpha_num, "", " ") == ParseError(SourcePos("", 1, 1), [SysUnExpect(" ")])
 
 # -- | Parses an alphabetic Unicode characters (lower-case, upper-case and title-case letters,
 # -- plus letters of caseless scripts and modifiers letters according to 'isAlpha').
