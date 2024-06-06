@@ -1,7 +1,7 @@
 from typing import Callable, Iterable, TypeVar
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.parsec.prim import (
-    Parsec,
+    ParsecT,
     SourcePos,
     UnExpect,
     parse,
@@ -19,17 +19,18 @@ _U = TypeVar("_U")
 # oneOf cs            = satisfy (\c -> elem c cs)
 
 
-def one_of(cs: str) -> Parsec[Iterable[str], _U, str]:
+def one_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
     return satisfy(lambda c: elem(c, cs))
 
 
 def _test_one_of():
-    assert parse(one_of("abc"), "", "") == ParseError(
+    assert parse(one_of("ab"), "", "") == ParseError(
         SourcePos("", 1, 1), [UnExpect("")]
     )
-    assert parse(one_of("abc"), "", "a") == "a"
-    assert parse(one_of("abc"), "", "b") == ParseError(
-        SourcePos("", 1, 1), [UnExpect("b")]
+    assert parse(one_of("ab"), "", "a") == "a"
+    assert parse(one_of("ab"), "", "b") == "b"
+    assert parse(one_of("ab"), "", "c") == ParseError(
+        SourcePos("", 1, 1), [UnExpect("c")]
     )
 
 
@@ -44,7 +45,7 @@ def _test_one_of():
 # noneOf cs           = satisfy (\c -> not (elem c cs))
 
 
-def none_of(cs: str) -> Parsec[Iterable[str], _U, str]:
+def none_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
     return satisfy(lambda c: not elem(c, cs))
 
 
@@ -55,7 +56,7 @@ def none_of(cs: str) -> Parsec[Iterable[str], _U, str]:
 # spaces              = skipMany space        <?> "white space"
 
 
-def spaces() -> Parsec[Iterable[str], _U, None]:
+def spaces() -> ParsecT[Iterable[str], _U, None]:
     return skip_many(space())
 
 
@@ -67,7 +68,7 @@ def spaces() -> Parsec[Iterable[str], _U, None]:
 # space               = satisfy isSpace       <?> "space"
 
 
-def space() -> Parsec[Iterable[str], _U, str]:
+def space() -> ParsecT[Iterable[str], _U, str]:
     return satisfy(str.isspace)
 
 
@@ -78,7 +79,7 @@ def space() -> Parsec[Iterable[str], _U, str]:
 # newline             = char '\n'             <?> "lf new-line"
 
 
-def new_line() -> Parsec[Iterable[str], _U, str]:
+def new_line() -> ParsecT[Iterable[str], _U, str]:
     return char("\n")
 
 
@@ -90,7 +91,7 @@ def new_line() -> Parsec[Iterable[str], _U, str]:
 # crlf                = char '\r' *> char '\n' <?> "crlf new-line"
 
 
-def crlf() -> Parsec[Iterable[str], _U, str]:
+def crlf() -> ParsecT[Iterable[str], _U, str]:
     return char("\r").then(char("\n"))
 
 
@@ -173,7 +174,7 @@ def crlf() -> Parsec[Iterable[str], _U, str]:
 # char c              = satisfy (==c)  <?> show [c]
 
 
-def char(c: str) -> Parsec[Iterable[str], _U, str]:
+def char(c: str) -> ParsecT[Iterable[str], _U, str]:
     return satisfy(lambda x: x == c)
 
 
@@ -197,7 +198,7 @@ def char(c: str) -> Parsec[Iterable[str], _U, str]:
 #                                 (\c -> if f c then Just c else Nothing)
 
 
-def satisfy(f: Callable[[str], bool]) -> Parsec[Iterable[str], _U, str]:
+def satisfy(f: Callable[[str], bool]) -> ParsecT[Iterable[str], _U, str]:
     return token_prim(
         lambda c: str(c),
         lambda pos, c, cs: update_pos_char(pos, c),

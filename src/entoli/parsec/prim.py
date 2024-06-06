@@ -57,7 +57,7 @@ _T = TypeVar("_T")
 
 
 @dataclass
-class Parsec(Generic[_S, _U, _A], Monad[_A]):
+class ParsecT(Generic[_S, _U, _A], Monad[_A]):
     un_parser: Callable[
         [
             State[_S, _U],
@@ -70,33 +70,37 @@ class Parsec(Generic[_S, _U, _A], Monad[_A]):
     ]
 
     @staticmethod
-    def fmap(f: Callable[[_A], _B], x: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _B]":
+    def fmap(f: Callable[[_A], _B], x: "ParsecT[_S, _U, _A]") -> "ParsecT[_S, _U, _B]":
         return parser_map(f, x)
 
     @staticmethod
-    def pure(x: _A) -> "Parsec[_S, _U, _A]":
+    def pure(x: _A) -> "ParsecT[_S, _U, _A]":
         return parser_pure(x)
 
     @staticmethod
     def ap(
-        f: "Parsec[_S, _U, Callable[[_A], _B]]", x: "Parsec[_S, _U, _A]"
-    ) -> "Parsec[_S, _U, _B]":
-        return Parsec.bind(f, lambda f_: Parsec.bind(x, lambda x_: Parsec.pure(f_(x_))))
+        f: "ParsecT[_S, _U, Callable[[_A], _B]]", x: "ParsecT[_S, _U, _A]"
+    ) -> "ParsecT[_S, _U, _B]":
+        return ParsecT.bind(
+            f, lambda f_: ParsecT.bind(x, lambda x_: ParsecT.pure(f_(x_)))
+        )
 
     @staticmethod
     def bind(
-        x: "Parsec[_S, _U, _A]", f: Callable[[_A], "Parsec[_S, _U, _B]"]
-    ) -> "Parsec[_S, _U, _B]":
+        x: "ParsecT[_S, _U, _A]", f: Callable[[_A], "ParsecT[_S, _U, _B]"]
+    ) -> "ParsecT[_S, _U, _B]":
         return parser_bind(x, f)
 
-    def map(self, f: Callable[[_A], _B]) -> "Parsec[_S, _U, _B]":
-        return Parsec.fmap(f, self)
+    def map(self, f: Callable[[_A], _B]) -> "ParsecT[_S, _U, _B]":
+        return ParsecT.fmap(f, self)
 
-    def and_then(self, f: Callable[[_A], "Parsec[_S, _U, _B]"]) -> "Parsec[_S, _U, _B]":
-        return Parsec.bind(self, f)
+    def and_then(
+        self, f: Callable[[_A], "ParsecT[_S, _U, _B]"]
+    ) -> "ParsecT[_S, _U, _B]":
+        return ParsecT.bind(self, f)
 
-    def then(self, x: "Parsec[_S, _U, _B]") -> "Parsec[_S, _U, _B]":
-        return Parsec.bind(self, lambda _: x)
+    def then(self, x: "ParsecT[_S, _U, _B]") -> "ParsecT[_S, _U, _B]":
+        return ParsecT.bind(self, lambda _: x)
 
 
 # runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
@@ -109,7 +113,7 @@ class Parsec(Generic[_S, _U, _A], Monad[_A]):
 
 
 def run_parsec_t(
-    parser: Parsec[_S, _U, _A],
+    parser: ParsecT[_S, _U, _A],
     state: State[_S, _U],
 ) -> MbConsumed[Reply[_S, _U, _A]]:
     def cok(a, s_, err):
@@ -146,7 +150,7 @@ def run_parsec_t(
 
 def make_parser(
     k: Callable[[State[_S, _U]], MbConsumed[Reply[_S, _U, _A]]],
-) -> Parsec[_S, _U, _A]:
+) -> ParsecT[_S, _U, _A]:
     def _un_parser(
         s: State[_S, _U],
         cok: Callable[[_A, State[_S, _U], ParseError], Any],
@@ -171,14 +175,14 @@ def make_parser(
                     case Reply_Error(err):
                         eerr(err)
 
-    return Parsec(_un_parser)
+    return ParsecT(_un_parser)
 
 
 @dataclass
 class State(Generic[_S, _U]):
-    state_input: _S
-    state_pos: SourcePos
-    state_user: _U
+    input: _S
+    pos: SourcePos
+    user_state: _U
 
 
 @dataclass
@@ -370,8 +374,8 @@ class Reply_Ok(Generic[_S, _U, _A]):
 
 def parser_map(
     f: Callable[[_A], _B],
-    parser: Parsec[_S, _U, _A],
-) -> Parsec[_S, _U, _B]:
+    parser: ParsecT[_S, _U, _A],
+) -> ParsecT[_S, _U, _B]:
     def _un_parser(
         s: State[_S, _U],
         consumed_ok: Callable[[_B, State[_S, _U], ParseError], Any],
@@ -387,7 +391,7 @@ def parser_map(
             empty_error,
         )
 
-    return Parsec(_un_parser)
+    return ParsecT(_un_parser)
 
 
 # parserReturn :: a -> ParsecT s u m a
@@ -398,8 +402,8 @@ def parser_map(
 
 def parser_pure(
     x: _A,
-) -> Parsec[_S, _U, _A]:
-    return Parsec(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
+) -> ParsecT[_S, _U, _A]:
+    return ParsecT(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
 
 
 # parserBind :: ParsecT s u m a -> (a -> ParsecT s u m b) -> ParsecT s u m b
@@ -447,9 +451,9 @@ def parser_pure(
 
 
 def parser_bind(
-    parser: Parsec[_S, _U, _A],
-    f: Callable[[_A], Parsec[_S, _U, _B]],
-) -> Parsec[_S, _U, _B]:
+    parser: ParsecT[_S, _U, _A],
+    f: Callable[[_A], ParsecT[_S, _U, _B]],
+) -> ParsecT[_S, _U, _B]:
     def _un_parser(
         s: State[_S, _U],
         cok: Callable[[_B, State[_S, _U], ParseError], Any],
@@ -490,7 +494,7 @@ def parser_bind(
 
         return parser.un_parser(s, mcok, cerr, meok, eerr)
 
-    return Parsec(_un_parser)
+    return ParsecT(_un_parser)
 
 
 # tokens :: (Stream s m t, Eq t)
@@ -535,10 +539,10 @@ def tokens(
     show_tokens: Callable[[Iterable[_T]], str],
     next_pos: Callable[[SourcePos, Iterable[_T]], SourcePos],
     tts: Iterable[_T],
-) -> Parsec[Iterable[_T], _U, Iterable[_T]]:
+) -> ParsecT[Iterable[_T], _U, Iterable[_T]]:
     match uncons(tts):
         case Nothing():
-            return Parsec(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
+            return ParsecT(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
         case Just((tok, toks)):
             # tok = head(ts)
             # toks = tail(ts)
@@ -554,13 +558,13 @@ def tokens(
             ) -> Any:
                 err_eof = set_error_message(
                     Expect(show_tokens(tts)),
-                    new_error_message(SysUnExpect(""), s.state_pos),
+                    new_error_message(SysUnExpect(""), s.pos),
                 )
 
                 def err_expect(x):
                     return set_error_message(
                         Expect(show_tokens(tts)),
-                        new_error_message(SysUnExpect(show_tokens([x])), s.state_pos),
+                        new_error_message(SysUnExpect(show_tokens([x])), s.pos),
                     )
 
                 def walk(ts: Iterable[_T], rs: Iterable[_T]) -> Any:
@@ -580,11 +584,11 @@ def tokens(
                                         return cerr(err_expect(x))
 
                 def ok(rs: Iterable[_T]) -> Any:
-                    pos_ = next_pos(s.state_pos, tts)
-                    s_ = State(rs, pos_, s.state_user)
+                    pos_ = next_pos(s.pos, tts)
+                    s_ = State(rs, pos_, s.user_state)
                     return cok(tts, s_, new_error_unknown(pos_))
 
-                sr = uncons(s.state_input)
+                sr = uncons(s.input)
 
                 match sr:
                     case Nothing():
@@ -595,7 +599,7 @@ def tokens(
                         else:
                             return eerr(err_expect(x))
 
-            return Parsec(_un_parser)
+            return ParsecT(_un_parser)
 
 
 # -- | Like 'tokens', but doesn't consume matching prefix.
@@ -643,11 +647,11 @@ def tokens_(
     show_tokens: Callable[[Iterable[_T]], str],
     next_pos: Callable[[SourcePos, Iterable[_T]], SourcePos],
     tts: Iterable[_T],
-) -> Parsec[Iterable[_T], _U, Iterable[_T]]:
+) -> ParsecT[Iterable[_T], _U, Iterable[_T]]:
     # match tts:
     match uncons(tts):
         case Nothing():
-            return Parsec(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
+            return ParsecT(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
         case Just((tok, toks)):
 
             def _un_parser(
@@ -661,13 +665,13 @@ def tokens_(
             ) -> Any:
                 err_eof = set_error_message(
                     Expect(show_tokens(tts)),
-                    new_error_message(SysUnExpect(""), s.state_pos),
+                    new_error_message(SysUnExpect(""), s.pos),
                 )
 
                 def err_expect(x):
                     return set_error_message(
                         Expect(show_tokens(tts)),
-                        new_error_message(SysUnExpect(show_tokens([x])), s.state_pos),
+                        new_error_message(SysUnExpect(show_tokens([x])), s.pos),
                     )
 
                 def walk(ts: Iterable[_T], rs: Iterable[_T]) -> Any:
@@ -686,11 +690,11 @@ def tokens_(
                                         return eerr(err_expect(x))
 
                 def ok(rs: Iterable[_T]) -> Any:
-                    pos_ = next_pos(s.state_pos, tts)
-                    s_ = State(rs, pos_, s.state_user)
+                    pos_ = next_pos(s.pos, tts)
+                    s_ = State(rs, pos_, s.user_state)
                     return cok(tts, s_, new_error_unknown(pos_))
 
-                sr = uncons(s.state_input)
+                sr = uncons(s.input)
 
                 match sr:
                     case Nothing():
@@ -701,7 +705,7 @@ def tokens_(
                         else:
                             return eerr(err_expect(x))
 
-            return Parsec(_un_parser)
+            return ParsecT(_un_parser)
 
 
 # tokenPrim :: (Stream s m t)
@@ -717,7 +721,7 @@ def token_prim(
     show_token: Callable[[_T], str],
     next_pos: Callable[[SourcePos, _T, Iterable[_T]], SourcePos],
     test: Callable[[_T], Maybe[_A]],
-) -> Parsec[Iterable[_T], _U, _A]:
+) -> ParsecT[Iterable[_T], _U, _A]:
     return token_prim_ex(show_token, next_pos, Nothing(), test)
 
 
@@ -760,7 +764,7 @@ def token_prim_ex(
     next_pos: Callable[[SourcePos, _T, Iterable[_T]], SourcePos],
     next_state: Maybe[Callable[[SourcePos, _T, Iterable[_T], _U], _U]],
     test: Callable[[_T], Maybe[_A]],
-) -> Parsec[Iterable[_T], _U, _A]:
+) -> ParsecT[Iterable[_T], _U, _A]:
     def _un_parser(
         s: State[Iterable[_T], _U],
         cok: Callable[[_A, State[Iterable[_T], _U], ParseError], Any],
@@ -768,22 +772,22 @@ def token_prim_ex(
         _eok: Callable[[_A, State[Iterable[_T], _U], ParseError], Any],
         eerr: Callable[[ParseError], Any],
     ) -> Any:
-        r = uncons(s.state_input)
+        r = uncons(s.input)
         match r:
             case Nothing():
-                return eerr(new_error_message(SysUnExpect(""), s.state_pos))
+                return eerr(new_error_message(SysUnExpect(""), s.pos))
             case Just((c, cs)):
                 match test(c):
                     case Just(x):
-                        new_pos = next_pos(s.state_pos, c, cs)
-                        new_state = State(cs, new_pos, s.state_user)
+                        new_pos = next_pos(s.pos, c, cs)
+                        new_state = State(cs, new_pos, s.user_state)
                         return cok(x, new_state, new_error_unknown(new_pos))
                     case Nothing():
                         return eerr(
-                            new_error_message(SysUnExpect(show_token(c)), s.state_pos)
+                            new_error_message(SysUnExpect(show_token(c)), s.pos)
                         )
 
-    return Parsec(_un_parser)
+    return ParsecT(_un_parser)
 
 
 # token :: (Stream s Identity t)
@@ -803,7 +807,7 @@ def token(
     show_token: Callable[[_T], str],
     tok_pos: Callable[[_T], SourcePos],
     test: Callable[[_T], Maybe[_A]],
-) -> Parsec[Iterable[_T], _U, _A]:
+) -> ParsecT[Iterable[_T], _U, _A]:
     return token_prim(show_token, lambda _, tok, ts: tok_pos(tok), test)
 
 
@@ -814,7 +818,7 @@ def token(
 def unknown_error(
     state: State[_S, _U],
 ) -> ParseError:
-    return new_error_unknown(state.state_pos)
+    return new_error_unknown(state.pos)
 
 
 # many :: ParsecT s u m a -> ParsecT s u m [a]
@@ -824,8 +828,8 @@ def unknown_error(
 
 
 def many(
-    p: Parsec[_S, _U, _A],
-) -> Parsec[_S, _U, Iterable[_A]]: ...
+    p: ParsecT[_S, _U, _A],
+) -> ParsecT[_S, _U, Iterable[_A]]: ...
 
 
 # many1 :: ParsecT s u m a -> ParsecT s u m [a]
@@ -834,10 +838,10 @@ def many(
 
 
 def many1(
-    p: Parsec[_S, _U, _A],
-) -> Parsec[_S, _U, Iterable[_A]]:
-    return Parsec.bind(
-        p, lambda x: Parsec.bind(many(p), lambda xs: Parsec.pure([x] + xs))
+    p: ParsecT[_S, _U, _A],
+) -> ParsecT[_S, _U, Iterable[_A]]:
+    return ParsecT.bind(
+        p, lambda x: ParsecT.bind(many(p), lambda xs: ParsecT.pure([x] + xs))
     )
 
 
@@ -848,9 +852,9 @@ def many1(
 
 
 def skip_many(
-    p: Parsec[_S, _U, _A],
-) -> Parsec[_S, _U, None]:
-    return Parsec.bind(many_accum(lambda _0, _1: [], p), lambda _: Parsec.pure(None))
+    p: ParsecT[_S, _U, _A],
+) -> ParsecT[_S, _U, None]:
+    return ParsecT.bind(many_accum(lambda _0, _1: [], p), lambda _: ParsecT.pure(None))
 
 
 # manyAccum :: (a -> [a] -> [a])
@@ -869,8 +873,8 @@ def skip_many(
 
 def many_accum(
     acc: Callable[[_A, Iterable[_A]], Iterable[_A]],
-    p: Parsec[_S, _U, _A],
-) -> Parsec[_S, _U, Iterable[_A]]:
+    p: ParsecT[_S, _U, _A],
+) -> ParsecT[_S, _U, Iterable[_A]]:
     def _un_parser(
         s: State[_S, _U],
         cok: Callable[[Iterable[_A], State[_S, _U], ParseError], Any],
@@ -900,7 +904,7 @@ def many_accum(
             lambda e: eok([], s, e),
         )
 
-    return Parsec(_un_parser)
+    return ParsecT(_un_parser)
 
 
 def many_err() -> Any:
@@ -926,7 +930,7 @@ def many_err() -> Any:
 
 
 def run_pt(
-    p: Parsec[Iterable[_T], _U, _A],
+    p: ParsecT[Iterable[_T], _U, _A],
     u: _U,
     name: str,
     s: Iterable[_T],
@@ -957,7 +961,7 @@ def run_pt(
 
 
 def run_p(
-    p: Parsec[Iterable[_T], _U, _A],
+    p: ParsecT[Iterable[_T], _U, _A],
     u: _U,
     name: str,
     s: Iterable[_T],
@@ -974,7 +978,7 @@ def run_p(
 
 
 def run_parser_t(
-    p: Parsec[Iterable[_T], _U, _A],
+    p: ParsecT[Iterable[_T], _U, _A],
     u: _U,
     name: str,
     s: Iterable[_T],
@@ -990,7 +994,7 @@ def run_parser_t(
 
 
 def run_parser(
-    p: Parsec[Iterable[_T], _U, _A],
+    p: ParsecT[Iterable[_T], _U, _A],
     u: _U,
     name: str,
     s: Iterable[_T],
@@ -1006,7 +1010,7 @@ def run_parser(
 
 
 def parse(
-    p: Parsec[Iterable[_T], None, _A],
+    p: ParsecT[Iterable[_T], None, _A],
     name: str,
     s: Iterable[_T],
 ) -> Either[ParseError, _A]:
@@ -1023,7 +1027,7 @@ def parse(
 
 
 def parse_test(
-    p: Parsec[Iterable[_T], None, _A],
+    p: ParsecT[Iterable[_T], None, _A],
     input: Iterable[_T],
 ) -> Io[None]:
     match parse(p, "", input):
@@ -1042,9 +1046,9 @@ def parse_test(
 #                  return (statePos state)
 
 
-def get_position() -> Parsec[Iterable[_T], _U, SourcePos]:
+def get_position() -> ParsecT[Iterable[_T], _U, SourcePos]:
     # return Parser.pure(lambda s: s.state_pos)
-    return get_parser_state().and_then(lambda s: Parsec.pure(s.state_pos))
+    return get_parser_state().and_then(lambda s: ParsecT.pure(s.pos))
 
 
 # -- | Returns the current input
@@ -1054,9 +1058,9 @@ def get_position() -> Parsec[Iterable[_T], _U, SourcePos]:
 #               return (stateInput state)
 
 
-def get_input() -> Parsec[Iterable[_T], _U, Iterable[_T]]:
+def get_input() -> ParsecT[Iterable[_T], _U, Iterable[_T]]:
     # return Parser.pure(lambda s: s.state_input)
-    return get_parser_state().and_then(lambda s: Parsec.pure(s.state_input))
+    return get_parser_state().and_then(lambda s: ParsecT.pure(s.input))
 
 
 # -- | @setPosition pos@ sets the current source position to @pos@.
@@ -1067,9 +1071,9 @@ def get_input() -> Parsec[Iterable[_T], _U, Iterable[_T]]:
 #          return ()
 
 
-def set_position(pos: SourcePos) -> Parsec[Iterable[_T], _U, None]:
-    return update_parser_state(lambda s: State(s.state_input, pos, s.state_user)).then(
-        Parsec.pure(None)
+def set_position(pos: SourcePos) -> ParsecT[Iterable[_T], _U, None]:
+    return update_parser_state(lambda s: State(s.input, pos, s.user_state)).then(
+        ParsecT.pure(None)
     )
 
 
@@ -1083,9 +1087,9 @@ def set_position(pos: SourcePos) -> Parsec[Iterable[_T], _U, None]:
 #          return ()
 
 
-def set_input(input: Iterable[_T]) -> Parsec[Iterable[_T], _U, None]:
-    return update_parser_state(lambda s: State(input, s.state_pos, s.state_user)).then(
-        Parsec.pure(None)
+def set_input(input: Iterable[_T]) -> ParsecT[Iterable[_T], _U, None]:
+    return update_parser_state(lambda s: State(input, s.pos, s.user_state)).then(
+        ParsecT.pure(None)
     )
 
 
@@ -1095,7 +1099,7 @@ def set_input(input: Iterable[_T]) -> Parsec[Iterable[_T], _U, None]:
 # getParserState = updateParserState id
 
 
-def get_parser_state() -> Parsec[Iterable[_T], _U, State[Iterable[_T], _U]]:
+def get_parser_state() -> ParsecT[Iterable[_T], _U, State[Iterable[_T], _U]]:
     return update_parser_state(id)
 
 
@@ -1107,7 +1111,7 @@ def get_parser_state() -> Parsec[Iterable[_T], _U, State[Iterable[_T], _U]]:
 
 def set_parser_state(
     st: State[Iterable[_T], _U],
-) -> Parsec[Iterable[_T], _U, State[Iterable[_T], _U]]:
+) -> ParsecT[Iterable[_T], _U, State[Iterable[_T], _U]]:
     return update_parser_state(lambda _: st)
 
 
@@ -1122,7 +1126,7 @@ def set_parser_state(
 
 def update_parser_state(
     f: Callable[[State[Iterable[_T], _U]], State[Iterable[_T], _U]],
-) -> Parsec[Iterable[_T], _U, State[Iterable[_T], _U]]:
+) -> ParsecT[Iterable[_T], _U, State[Iterable[_T], _U]]:
     def _un_parser(
         s: State[Iterable[_T], _U],
         _0: Any,
@@ -1135,7 +1139,7 @@ def update_parser_state(
         s_ = f(s)
         return eok(s_, s_, unknown_error(s))
 
-    return Parsec(_un_parser)
+    return ParsecT(_un_parser)
 
 
 # -- < User state combinators
@@ -1146,8 +1150,8 @@ def update_parser_state(
 # getState = stateUser `liftM` getParserState
 
 
-def get_state() -> Parsec[Iterable[_T], _U, _U]:
-    return get_parser_state().and_then(lambda s: Parsec.pure(s.state_user))
+def get_state() -> ParsecT[Iterable[_T], _U, _U]:
+    return get_parser_state().and_then(lambda s: ParsecT.pure(s.user_state))
 
 
 # -- | @putState st@ set the user state to @st@.
@@ -1159,9 +1163,9 @@ def get_state() -> Parsec[Iterable[_T], _U, _U]:
 
 def put_state(
     u: _U,
-) -> Parsec[Iterable[_T], _U, None]:
-    return update_parser_state(lambda s: State(s.state_input, s.state_pos, u)).then(
-        Parsec.pure(None)
+) -> ParsecT[Iterable[_T], _U, None]:
+    return update_parser_state(lambda s: State(s.input, s.pos, u)).then(
+        ParsecT.pure(None)
     )
 
 
@@ -1181,11 +1185,11 @@ def put_state(
 
 def modify_state(
     f: Callable[[_U], _U],
-) -> Parsec[Iterable[_T], _U, None]:
+) -> ParsecT[Iterable[_T], _U, None]:
     def _f(s: State[Iterable[_T], _U]) -> State[Iterable[_T], _U]:
-        return State(s.state_input, s.state_pos, f(s.state_user))
+        return State(s.input, s.pos, f(s.user_state))
 
-    return update_parser_state(_f).then(Parsec.pure(None))
+    return update_parser_state(_f).then(ParsecT.pure(None))
 
 
 # -- XXX Compat
@@ -1198,7 +1202,7 @@ def modify_state(
 
 def set_state(
     u: _U,
-) -> Parsec[Iterable[_T], _U, None]:
+) -> ParsecT[Iterable[_T], _U, None]:
     return put_state(u)
 
 
@@ -1210,5 +1214,5 @@ def set_state(
 
 def update_state(
     f: Callable[[_U], _U],
-) -> Parsec[Iterable[_T], _U, None]:
+) -> ParsecT[Iterable[_T], _U, None]:
     return modify_state(f)
