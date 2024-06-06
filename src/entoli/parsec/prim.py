@@ -493,13 +493,6 @@ def parser_bind(
     return Parsec(_un_parser)
 
 
-# def uncons(xs: Iterable[_T]) -> Maybe[Tuple[_T, Iterable[_T]]]:
-#     if null(xs):
-#         return Nothing()
-#     else:
-#         return Just((head(xs), tail(xs)))
-
-
 # tokens :: (Stream s m t, Eq t)
 #        => ([t] -> String)      -- Pretty print a list of tokens
 #        -> (SourcePos -> [t] -> SourcePos)
@@ -653,13 +646,9 @@ def tokens_(
 ) -> Parsec[Iterable[_T], _U, Iterable[_T]]:
     # match tts:
     match uncons(tts):
-        # case []:
         case Nothing():
             return Parsec(lambda s, _0, _1, eok, _2: eok([], s, unknown_error(s)))
-        # case ts:
         case Just((tok, toks)):
-            # tok = head(ts)
-            # toks = tail(ts)
 
             def _un_parser(
                 s: State[Iterable[_T], _U],
@@ -682,12 +671,9 @@ def tokens_(
                     )
 
                 def walk(ts: Iterable[_T], rs: Iterable[_T]) -> Any:
-                    # match ts:
                     match uncons(ts):
-                        # case []:
                         case Nothing():
                             return ok(rs)
-                        # case [t, *ts]:
                         case Just((t, ts)):
                             sr = uncons(rs)
                             match sr:
