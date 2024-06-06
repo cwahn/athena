@@ -35,6 +35,8 @@ class Alternative(Applicative[_A_co], Protocol[_A_co]):
 
     def or_else(self, other: Self) -> Self: ...
 
+    # ! Hard to express with current type system
+
     # # some v = (:) <$> v <*> many v
     # def some(self) -> Alternative[Iterable[_A_co]]:
     #     return Applicative.ap(
@@ -44,6 +46,13 @@ class Alternative(Applicative[_A_co], Protocol[_A_co]):
     # # many v = some v <|> pure []
     # def many(self) -> Alternative[Iterable[_A_co]]:
     #     return self.some().or_else(Alternative[Iterable[_A_co]].pure([]))
+
+
+class MonadPlus(Monad[_A_co], Protocol[_A_co]):
+    @staticmethod
+    def mzero() -> MonadPlus[_A_co]: ...
+
+    def mplus(self, other: Self) -> Self: ...
 
 
 class Ord(Protocol):

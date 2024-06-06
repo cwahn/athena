@@ -155,9 +155,25 @@ def _test_crlf():
 # {-# INLINABLE endOfLine #-}
 # endOfLine           = newline <|> crlf       <?> "new-line"
 
+
+def end_of_line() -> ParsecT[Iterable[str], _U, str]:
+    return new_line().or_else(crlf())
+
+
+def _test_end_of_line():
+    assert parse(end_of_line(), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("")]
+    )
+    assert parse(end_of_line(), "", "\n") == "\n"
+    assert parse(end_of_line(), "", "\r\n") == "\n"
+    assert parse(end_of_line(), "", "\r") == ParseError(
+        SourcePos("", 1, 2), [SysUnExpect("")]
+    )
+    assert parse(end_of_line(), "", "a") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect("a")]
+    )
+
 # -- | Parses a tab character (\'\\t\'). Returns a tab character.
-
-
 
 
 # tab :: (Stream s m Char) => ParsecT s u m Char
