@@ -17,7 +17,7 @@ from entoli.base import maybe
 from entoli.base.either import Either
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
-from entoli.base.typeclass import _A, _B, _A_co, Alternative, Functor, Monad
+from entoli.base.typeclass import _A, _B, _A_co, Alternative, Functor, Monad, MonadPlus
 from entoli.prelude import (
     append,
     fst,
@@ -57,7 +57,7 @@ _T = TypeVar("_T")
 
 
 @dataclass
-class ParsecT(Generic[_S, _U, _A], Monad[_A], Alternative[_A]):
+class ParsecT(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     un_parser: Callable[
         [
             State[_S, _U],
@@ -92,23 +92,62 @@ class ParsecT(Generic[_S, _U, _A], Monad[_A], Alternative[_A]):
         return parser_bind(x, f)
 
     @staticmethod
+    def mzero() -> "ParsecT[_S, _U, _A]":
+        return ParsecT(lambda s, _0, _1, _2, eerr: eerr(unknown_error(s)))
+
+    # arserPlus :: ParsecT s u m a -> ParsecT s u m a -> ParsecT s u m a
+    # {-# INLINE parserPlus #-}
+    # parserPlus m n
+    #     = ParsecT $ \s cok cerr eok eerr ->
+    #       let
+    #           meerr err =
+    #               let
+    #                   neok y s' err' = eok y s' (mergeError err err')
+    #                   neerr err' = eerr $ mergeError err err'
+    #               in unParser n s cok cerr neok neerr
+    #       in unParser m s cok cerr eok meerr
+
+    def mplus(self, other: "ParsecT[_S, _U, _A]") -> "ParsecT[_S, _U, _A]":
+        def _un_parser(
+            s: State[_S, _U],
+            cok: Callable[[_A, State[_S, _U], ParseError], Any],
+            cerr: Callable[[ParseError], Any],
+            eok: Callable[[_A, State[_S, _U], ParseError], Any],
+            eerr: Callable[[ParseError], Any],
+        ) -> Any:
+            def meerr(err):
+                def neok(y, s_, err_):
+                    return eok(y, s_, merge_error(err, err_))
+
+                def neerr(err_):
+                    return eerr(merge_error(err, err_))
+
+                return other.un_parser(s, cok, cerr, neok, neerr)
+
+            return self.un_parser(s, cok, cerr, eok, meerr)
+
+        return ParsecT(_un_parser)
+
+    @staticmethod
     def empty() -> "ParsecT[_S, _U, _A]":
         return ParsecT(lambda s, _0, _1, _2, eerr: eerr(unknown_error(s)))
 
     def or_else(self, other: "ParsecT[_S, _U, _A]") -> "ParsecT[_S, _U, _A]":
-        return ParsecT(lambda s, cok, cerr, eok, eerr: self.un_parser(
-            s,
-            cok,
-            lambda err: other.un_parser(
+        return ParsecT(
+            lambda s, cok, cerr, eok, eerr: self.un_parser(
                 s,
                 cok,
-                lambda err_: cerr(merge_error(err, err_)),
+                lambda err: other.un_parser(
+                    s,
+                    cok,
+                    lambda err_: cerr(merge_error(err, err_)),
+                    eok,
+                    eerr,
+                ),
                 eok,
                 eerr,
-            ),
-            eok,
-            eerr,
-        ))
+            )
+        )
 
     def map(self, f: Callable[[_A], _B]) -> "ParsecT[_S, _U, _B]":
         return ParsecT.fmap(f, self)
