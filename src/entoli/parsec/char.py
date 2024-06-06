@@ -266,6 +266,13 @@ def _test_upper():
 # {-# INLINABLE lower #-}
 # lower               = satisfy isLower       <?> "lowercase letter"
 
+lower = satisfy(str.islower)
+
+def _test_lower():
+    assert parse(lower, "", "") == ParseError(SourcePos("", 1, 1), [SysUnExpect("")])
+    assert parse(lower, "", "a") == "a"
+    assert parse(lower, "", "A") == ParseError(SourcePos("", 1, 1), [SysUnExpect("A")])
+
 # -- | Parses a alphabetic or numeric Unicode characters
 # -- according to 'isAlphaNum'. Returns the parsed character.
 # --
