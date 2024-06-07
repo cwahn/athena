@@ -20,7 +20,7 @@ _V = TypeVar("_V")
 
 # ! Convenience combinators
 def some(p: ParsecT[_S, _U, _T]) -> ParsecT[_S, _U, Iterable[_T]]:
-    return p.many()
+    return p.some()
 
 
 def _test_some():
@@ -46,9 +46,7 @@ def _test_many():
     assert parse(many(char("a")), "", "") == []
     assert parse(many(char("a")), "", "a") == ["a"]
     assert parse(many(char("a")), "", "aa") == ["a", "a"]
-    assert parse(many(char("a")), "", "b") == ParseError(
-        SourcePos("", 1, 1), [SysUnExpect(value="b")]
-    )
+    assert parse(many(char("a")), "", "b") == []
 
 
 # -- | @choice ps@ tries to apply the parsers in the list @ps@ in order,
