@@ -10,6 +10,7 @@ from entoli.parsec.prim import (
     many1,
     parse,
     skip_many,
+    token_prim,
 )
 from entoli.prelude import append, foldr
 
@@ -462,6 +463,14 @@ def _test_count():
 # chainr p op x       = chainr1 p op <|> return x
 
 
+def chainr(
+    p: Parsec[_S, _U, _T],
+    op: Parsec[_S, _U, Callable[[_T, _T], _T]],
+    x: _T,
+) -> Parsec[_S, _U, _T]:
+    return chainr1(p, op).or_else(Parsec[_S, _U, _T].pure(x))
+
+
 # -- | @chainl p op x@ parses /zero/ or more occurrences of @p@,
 # -- separated by @op@. Returns a value obtained by a /left/ associative
 # -- application of all functions returned by @op@ to the values returned
@@ -471,6 +480,27 @@ def _test_count():
 # chainl :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m (a -> a -> a) -> a -> ParsecT s u m a
 # {-# INLINABLE chainl #-}
 # chainl p op x       = chainl1 p op <|> return x
+
+
+def chainl(
+    p: Parsec[_S, _U, _T],
+    op: Parsec[_S, _U, Callable[[_T, _T], _T]],
+    x: _T,
+) -> Parsec[_S, _U, _T]:
+    return chainl1(p, op).or_else(Parsec[_S, _U, _T].pure(x))
+
+
+def _test_chainl():
+    from entoli.parsec.char import char
+
+    p = char("1").map(int)
+    op = char("+").map(lambda _: lambda x, y: x + y)
+
+    assert parse(chainl(p, op, 9), "", "") == 9
+    assert parse(chainl(p, op, 9), "", "1") == 1
+    assert parse(chainl(p, op, 9), "", "1+1") == 2
+    assert parse(chainl(p, op, 9), "", "1+1+1") == 3
+
 
 # -- | @chainl1 p op@ parses /one/ or more occurrences of @p@,
 # -- separated by @op@ Returns a value obtained by a /left/ associative
@@ -542,6 +572,36 @@ def _test_chain1():
 #                                     }
 #                                 <|> return x
 
+
+def chainr1(
+    p: Parsec[_S, _U, _T],
+    op: Parsec[_S, _U, Callable[[_T, _T], _T]],
+) -> Parsec[_S, _U, _T]:
+    def scan() -> Parsec[_S, _U, _T]:
+        def rest(x: _T) -> Parsec[_S, _U, _T]:
+            return op.and_then(lambda f: scan().map(lambda y: f(x, y))).or_else(
+                Parsec[_S, _U, _T].pure(x)
+            )
+
+        return p.and_then(rest)
+
+    return scan()
+
+
+def _test_chainr1():
+    from entoli.parsec.char import char
+
+    p = char("1").map(int)
+    op = char("+").map(lambda _: lambda x, y: x + y)
+
+    assert parse(chainr1(p, op), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="")]
+    )
+    assert parse(chainr1(p, op), "", "1") == 1
+    assert parse(chainr1(p, op), "", "1+1") == 2
+    assert parse(chainr1(p, op), "", "1+1+1") == 3
+
+
 # -----------------------------------------------------------
 # -- Tricky combinators
 # -----------------------------------------------------------
@@ -551,6 +611,21 @@ def _test_chain1():
 # anyToken :: (Stream s m t, Show t) => ParsecT s u m t
 # {-# INLINABLE anyToken #-}
 # anyToken            = tokenPrim show (\pos _tok _toks -> pos) Just
+
+any_token = token_prim(
+    str,
+    lambda pos, tok, toks: pos,
+    Just,
+)
+
+
+def _test_any_token():
+    assert parse(any_token, "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="")]
+    )
+    assert parse(any_token, "", "a") == "a"
+    assert parse(any_token, "", "aa") == "a"
+
 
 # -- | This parser only succeeds at the end of the input. This is not a
 # -- primitive parser but it is defined using 'notFollowedBy'.
