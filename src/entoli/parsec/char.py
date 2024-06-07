@@ -223,7 +223,6 @@ def _test_crlf():
 end_of_line = new_line.or_else(crlf)
 
 
-# ! temp Error
 def _test_end_of_line():
     assert parse(end_of_line, "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value=""), SysUnExpect(value="")]

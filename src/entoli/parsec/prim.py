@@ -146,9 +146,28 @@ class ParsecT(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     def then(self, x: "ParsecT[_S, _U, _B]") -> "ParsecT[_S, _U, _B]":
         return ParsecT.bind(self, lambda _: x)
 
+    # some :: f a -> f [a]
+    # some v = some_v
+    #   where
+    #     many_v = some_v <|> pure []
+    #     some_v = (:) <$> v <*> many_v
+
+    # many :: f a -> f [a]
+    # many v = many_v
+    #   where
+    #     many_v = some_v <|> pure []
+    #     some_v = (:) <$> v <*> many_v
+
+    @staticmethod
+    def _lazy_ap(
+        f: "ParsecT[_S, _U, Callable[[_A], _B]]",
+        lazy_x: Callable[[], "ParsecT[_S, _U, _A]"],
+    ) -> "ParsecT[_S, _U, _B]":
+        return ParsecT[_S, _U, _A].ap(f, lazy_x())
+
     def some(self) -> "ParsecT[_S, _U, Iterable[_A]]":
-        return ParsecT.ap(
-            ParsecT.fmap(lambda x: lambda xs: [x] + xs, self), self.many()
+        return ParsecT[_S, _U, _A]._lazy_ap(
+            self.map(lambda x: lambda xs: append([x], xs)), lambda: self.many()
         )
 
     def many(self) -> "ParsecT[_S, _U, Iterable[_A]]":

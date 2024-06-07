@@ -68,6 +68,16 @@ def _test_foldl():
     assert foldl(lambda acc, x: acc + x, 0, [1, 2, 3]) == 6
 
 
+def foldr(f: Callable[[_A, _B], _B], acc: _B, xs: Iterable[_A]) -> _B:
+    return functools.reduce(lambda acc, x: f(x, acc), reversed(list(xs)), acc)
+
+
+def _test_foldr():
+    assert foldr(lambda x, acc: x + acc, 0, []) == 0
+    assert foldr(lambda x, acc: x + acc, 0, [1]) == 1
+    assert foldr(lambda x, acc: x + acc, 0, [1, 2, 3]) == 6
+
+
 def elem(x: _A, xs: Iterable[_A]) -> bool:
     return x in xs
 
