@@ -81,9 +81,7 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     def ap(
         f: "Parsec[_S, _U, Callable[[_A], _B]]", x: "Parsec[_S, _U, _A]"
     ) -> "Parsec[_S, _U, _B]":
-        return Parsec.bind(
-            f, lambda f_: Parsec.bind(x, lambda x_: Parsec.pure(f_(x_)))
-        )
+        return Parsec.bind(f, lambda f_: Parsec.bind(x, lambda x_: Parsec.pure(f_(x_))))
 
     @staticmethod
     def bind(
@@ -138,9 +136,7 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     def map(self, f: Callable[[_A], _B]) -> "Parsec[_S, _U, _B]":
         return Parsec.fmap(f, self)
 
-    def and_then(
-        self, f: Callable[[_A], "Parsec[_S, _U, _B]"]
-    ) -> "Parsec[_S, _U, _B]":
+    def and_then(self, f: Callable[[_A], "Parsec[_S, _U, _B]"]) -> "Parsec[_S, _U, _B]":
         return Parsec.bind(self, f)
 
     def then(self, x: "Parsec[_S, _U, _B]") -> "Parsec[_S, _U, _B]":
@@ -925,7 +921,8 @@ def unknown_error(
 
 def many(
     p: Parsec[_S, _U, _A],
-) -> Parsec[_S, _U, Iterable[_A]]: ...
+) -> Parsec[_S, _U, Iterable[_A]]:
+    return p.many()
 
 
 # many1 :: ParsecT s u m a -> ParsecT s u m [a]

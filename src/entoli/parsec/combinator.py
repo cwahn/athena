@@ -6,6 +6,7 @@ from entoli.parsec.prim import (
     Parsec,
     SourcePos,
     SysUnExpect,
+    many1,
     parse,
     skip_many,
 )
@@ -350,6 +351,32 @@ def _test_sep_end_by1():
 # endBy1 :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m sep -> ParsecT s u m [a]
 # {-# INLINABLE endBy1 #-}
 # endBy1 p sep        = many1 (do{ x <- p; _ <- sep; return x })
+
+
+def end_by1(
+    p: Parsec[_S, _U, _T],
+    sep: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, Iterable[_T]]:
+    return many1(p.and_then(lambda x: sep.then(Parsec[_S, _U, _T].pure(x))))
+
+
+def _test_end_by1():
+    from entoli.parsec.char import char
+
+    assert parse(end_by1(char("a"), char(",")), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="")]
+    )
+    assert parse(end_by1(char("a"), char(",")), "", "a") == ParseError(
+        SourcePos(name="", line=1, col=2), [SysUnExpect(value="")]
+    )
+    assert parse(end_by1(char("a"), char(",")), "", "a,") == ["a"]
+    assert parse(end_by1(char("a"), char(",")), "", "a,a") == ParseError(
+        SourcePos(name="", line=1, col=4), [SysUnExpect(value="")]
+    )
+    assert parse(end_by1(char("a"), char(",")), "", "b") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="b")]
+    )
+
 
 # -- | @endBy p sep@ parses /zero/ or more occurrences of @p@, separated
 # -- and ended by @sep@. Returns a list of values returned by @p@.
