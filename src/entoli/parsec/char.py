@@ -3,7 +3,7 @@ from typing import Callable, Iterable, TypeVar
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.parsec.prim import (
     Expect,
-    ParsecT,
+    Parsec,
     SourcePos,
     SysUnExpect,
     UnExpect,
@@ -32,7 +32,7 @@ _U = TypeVar("_U")
 #                                 (\c -> if f c then Just c else Nothing)
 
 
-def satisfy(f: Callable[[str], bool]) -> ParsecT[Iterable[str], _U, str]:
+def satisfy(f: Callable[[str], bool]) -> Parsec[Iterable[str], _U, str]:
     return token_prim(
         lambda c: str(c),
         lambda pos, c, cs: update_pos_char(pos, c),
@@ -55,7 +55,7 @@ def _test_satisfy():
 # oneOf cs            = satisfy (\c -> elem c cs)
 
 
-def one_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
+def one_of(cs: str) -> Parsec[Iterable[str], _U, str]:
     return satisfy(lambda c: elem(c, cs))
 
 
@@ -81,7 +81,7 @@ def _test_one_of():
 # noneOf cs           = satisfy (\c -> not (elem c cs))
 
 
-def none_of(cs: str) -> ParsecT[Iterable[str], _U, str]:
+def none_of(cs: str) -> Parsec[Iterable[str], _U, str]:
     return satisfy(lambda c: not elem(c, cs))
 
 
@@ -148,7 +148,7 @@ def _test_spaces():
 # char c              = satisfy (==c)  <?> show [c]
 
 
-def char(c: str) -> ParsecT[Iterable[str], _U, str]:
+def char(c: str) -> Parsec[Iterable[str], _U, str]:
     return satisfy(lambda x: x == c)
 
 
@@ -429,7 +429,7 @@ def _test_any_char():
 # string s            = tokens show updatePosString s
 
 
-def string(s: str) -> ParsecT[Iterable[str], _U, str]:
+def string(s: str) -> Parsec[Iterable[str], _U, str]:
     return tokens(
         lambda cs: "".join(cs), lambda pos, cs: update_pos_char(pos, "".join(cs)), s
     ).map(lambda cs: "".join(cs))
@@ -459,7 +459,7 @@ def _test_string():
 # string' s            = tokens' show updatePosString s
 
 
-def string_(s: str) -> ParsecT[Iterable[str], _U, str]:
+def string_(s: str) -> Parsec[Iterable[str], _U, str]:
     return tokens(
         lambda cs: "".join(cs), lambda pos, cs: update_pos_char(pos, "".join(cs)), s
     ).map(lambda cs: "".join(cs))

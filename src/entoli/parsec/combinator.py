@@ -3,7 +3,7 @@ from typing import Iterable, TypeVar
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.parsec.prim import (
     ParseError,
-    ParsecT,
+    Parsec,
     SourcePos,
     SysUnExpect,
     parse,
@@ -19,7 +19,7 @@ _V = TypeVar("_V")
 
 
 # ! Convenience combinators
-def some(p: ParsecT[_S, _U, _T]) -> ParsecT[_S, _U, Iterable[_T]]:
+def some(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, Iterable[_T]]:
     return p.some()
 
 
@@ -36,7 +36,7 @@ def _test_some():
     )
 
 
-def many(p: ParsecT[_S, _U, _T]) -> ParsecT[_S, _U, Iterable[_T]]:
+def many(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, Iterable[_T]]:
     return p.many()
 
 
@@ -58,8 +58,8 @@ def _test_many():
 # choice ps           = foldr (<|>) mzero ps
 
 
-def choice(ps: Iterable[ParsecT[_S, _U, _T]]) -> ParsecT[_S, _U, _T]:
-    return foldr(lambda x, y: x.or_else(y), ParsecT[_S, _U, _T].mzero(), ps)
+def choice(ps: Iterable[Parsec[_S, _U, _T]]) -> Parsec[_S, _U, _T]:
+    return foldr(lambda x, y: x.or_else(y), Parsec[_S, _U, _T].mzero(), ps)
 
 
 def _test_choice():
@@ -88,8 +88,8 @@ def _test_choice():
 # option x p          = p <|> return x
 
 
-def option(x: _T, p: ParsecT[_S, _U, _T]) -> ParsecT[_S, _U, _T]:
-    return p.or_else(ParsecT[_S, _U, _T].pure(x))
+def option(x: _T, p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, _T]:
+    return p.or_else(Parsec[_S, _U, _T].pure(x))
 
 
 def _test_option():
@@ -110,7 +110,7 @@ def _test_option():
 # optionMaybe p       = option Nothing (liftM Just p)
 
 
-def option_maybe(p: ParsecT[_S, _U, _T]) -> ParsecT[_S, _U, Maybe[_T]]:
+def option_maybe(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, Maybe[_T]]:
     return option(Nothing(), p.map(Just))
 
 
@@ -132,9 +132,9 @@ def _test_option_maybe():
 
 
 def optional(
-    p: ParsecT[_S, _U, _T],
-) -> ParsecT[_S, _U, None]:
-    return p.map(lambda _: None).or_else(ParsecT[_S, _U, None].pure(None))
+    p: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, None]:
+    return p.map(lambda _: None).or_else(Parsec[_S, _U, None].pure(None))
 
 
 def _test_optional():
@@ -159,11 +159,11 @@ def _test_optional():
 
 
 def between(
-    open: ParsecT[_S, _U, _T],
-    close: ParsecT[_S, _U, _T],
-    p: ParsecT[_S, _U, _T],
-) -> ParsecT[_S, _U, _T]:
-    return open.then(p).and_then(lambda x: close.then(ParsecT[_S, _U, _T].pure(x)))
+    open: Parsec[_S, _U, _T],
+    close: Parsec[_S, _U, _T],
+    p: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, _T]:
+    return open.then(p).and_then(lambda x: close.then(Parsec[_S, _U, _T].pure(x)))
 
 
 def _test_between():
@@ -188,7 +188,7 @@ def _test_between():
 # -}
 
 
-def skip_many1(p: ParsecT[_S, _U, _T]) -> ParsecT[_S, _U, None]:
+def skip_many1(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, None]:
     return p.then(skip_many(p))
 
 
@@ -228,9 +228,9 @@ def _test_skip_many1():
 
 
 def sep_by1(
-    p: ParsecT[_S, _U, _T],
-    sep: ParsecT[_S, _U, _V],
-) -> ParsecT[_S, _U, Iterable[_T]]:
+    p: Parsec[_S, _U, _T],
+    sep: Parsec[_S, _U, _V],
+) -> Parsec[_S, _U, Iterable[_T]]:
     return p.and_then(lambda x: many(sep.then(p)).map(lambda xs: append([x], xs)))
 
 
@@ -258,10 +258,10 @@ def _test_sep_by1():
 
 
 def sep_by(
-    p: ParsecT[_S, _U, _T],
-    sep: ParsecT[_S, _U, _T],
-) -> ParsecT[_S, _U, Iterable[_T]]:
-    return sep_by1(p, sep).or_else(ParsecT[_S, _U, Iterable[_T]].pure([]))
+    p: Parsec[_S, _U, _T],
+    sep: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, Iterable[_T]]:
+    return sep_by1(p, sep).or_else(Parsec[_S, _U, Iterable[_T]].pure([]))
 
 
 def _test_sep_by():
@@ -271,6 +271,35 @@ def _test_sep_by():
     assert parse(sep_by(char("a"), char(",")), "", "a") == ["a"]
     assert parse(sep_by(char("a"), char(",")), "", "a,a") == ["a", "a"]
     assert parse(sep_by(char("a"), char(",")), "", "b") == []
+
+    # -- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
+
+
+# -- separated and optionally ended by @sep@, ie. haskell style
+# -- statements. Returns a list of values returned by @p@.
+# --
+# -- >  haskellStatements  = haskellStatement `sepEndBy` semi
+
+# sepEndBy :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m sep -> ParsecT s u m [a]
+# {-# INLINABLE sepEndBy #-}
+# sepEndBy p sep      = sepEndBy1 p sep <|> return []
+
+
+def sep_end_by(
+    p: Parsec[_S, _U, _T],
+    sep: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, Iterable[_T]]:
+    return sep_end_by1(p, sep).or_else(Parsec[_S, _U, Iterable[_T]].pure([]))
+
+
+def _test_sep_end_by():
+    from entoli.parsec.char import char
+
+    assert parse(sep_end_by(char("a"), char(",")), "", "") == []
+    assert parse(sep_end_by(char("a"), char(",")), "", "a") == ["a"]
+    assert parse(sep_end_by(char("a"), char(",")), "", "a,") == ["a"]
+    assert parse(sep_end_by(char("a"), char(",")), "", "a,a") == ["a", "a"]
+    assert parse(sep_end_by(char("a"), char(",")), "", "b") == []
 
 
 # -- | @sepEndBy1 p sep@ parses /one/ or more occurrences of @p@,
@@ -287,15 +316,32 @@ def _test_sep_by():
 #                           <|> return [x]
 #                         }
 
-# -- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
-# -- separated and optionally ended by @sep@, ie. haskell style
-# -- statements. Returns a list of values returned by @p@.
-# --
-# -- >  haskellStatements  = haskellStatement `sepEndBy` semi
 
-# sepEndBy :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m sep -> ParsecT s u m [a]
-# {-# INLINABLE sepEndBy #-}
-# sepEndBy p sep      = sepEndBy1 p sep <|> return []
+def sep_end_by1(
+    p: Parsec[_S, _U, _T],
+    sep: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, Iterable[_T]]:
+    return p.and_then(
+        lambda x: sep.then(
+            sep_end_by(p, sep).and_then(
+                lambda xs: Parsec[_S, _U, Iterable[_T]].pure(append([x], xs))
+            )
+        ).or_else(Parsec[_S, _U, Iterable[_T]].pure([x]))
+    )
+
+
+def _test_sep_end_by1():
+    from entoli.parsec.char import char
+
+    assert parse(sep_end_by1(char("a"), char(",")), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="")]
+    )
+    assert parse(sep_end_by1(char("a"), char(",")), "", "a") == ["a"]
+    assert parse(sep_end_by1(char("a"), char(",")), "", "a,") == ["a"]
+    assert parse(sep_end_by1(char("a"), char(",")), "", "a,a") == ["a", "a"]
+    assert parse(sep_end_by1(char("a"), char(",")), "", "b") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="b")]
+    )
 
 
 # -- | @endBy1 p sep@ parses /one/ or more occurrences of @p@, separated
