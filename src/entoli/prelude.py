@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
-from entoli.base.typeclass import Ord, ToBool
+from entoli.base.typeclass import Applicative, Monad, Ord, ToBool
 
 
 _A = TypeVar("_A")
@@ -104,6 +104,18 @@ def _test_elem():
 
 
 # maximum, minimum, sum, product, any, all are built-in functions
+
+# def traverse(
+#     f: Callable[[_A], Applicative[_B]], xs: Iterable[_A]
+# ) -> Applicative[Iterable[_B]]:
+
+
+
+# def sequence(
+#     mas : Iterable[Monad[_A]]
+# ) -> Monad[Iterable[_A]]:
+
+
 
 
 # Miscellaneous functions

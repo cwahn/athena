@@ -1,4 +1,5 @@
-from typing import Iterable, TypeVar
+from ast import Call
+from typing import Callable, Iterable, TypeVar
 
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.parsec.prim import (
@@ -387,6 +388,28 @@ def _test_end_by1():
 # {-# INLINABLE endBy #-}
 # endBy p sep         = many (do{ x <- p; _ <- sep; return x })
 
+
+def end_by(
+    p: Parsec[_S, _U, _T],
+    sep: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, Iterable[_T]]:
+    return many(p.and_then(lambda x: sep.then(Parsec[_S, _U, _T].pure(x))))
+
+
+def _test_end_by():
+    from entoli.parsec.char import char
+
+    assert parse(end_by(char("a"), char(",")), "", "") == []
+    assert parse(end_by(char("a"), char(",")), "", "a") == ParseError(
+        SourcePos(name="", line=1, col=2), [SysUnExpect(value="")]
+    )
+    assert parse(end_by(char("a"), char(",")), "", "a,") == ["a"]
+    assert parse(end_by(char("a"), char(",")), "", "a,a") == ParseError(
+        SourcePos(name="", line=1, col=4), [SysUnExpect(value="")]
+    )
+    assert parse(end_by(char("a"), char(",")), "", "b") == []
+
+
 # -- | @count n p@ parses @n@ occurrences of @p@. If @n@ is smaller or
 # -- equal to zero, the parser equals to @return []@. Returns a list of
 # -- @n@ values returned by @p@.
@@ -395,6 +418,38 @@ def _test_end_by1():
 # {-# INLINABLE count #-}
 # count n p           | n <= 0    = return []
 #                     | otherwise = sequence (replicate n p)
+
+# todo Implement sequence, traverse
+
+
+def count(
+    n: int,
+    p: Parsec[_S, _U, _T],
+) -> Parsec[_S, _U, Iterable[_T]]:
+    if n <= 0:
+        return Parsec[_S, _U, Iterable[_T]].pure([])
+    else:
+        return foldr(
+            lambda x, y: x.and_then(lambda x: y.map(lambda xs: append([x], xs))),
+            Parsec[_S, _U, Iterable[_T]].pure([]),
+            [p] * n,
+        )
+
+
+def _test_count():
+    from entoli.parsec.char import char
+
+    assert parse(count(0, char("a")), "", "") == []
+    assert parse(count(1, char("a")), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="")]
+    )
+    assert parse(count(1, char("a")), "", "a") == ["a"]
+    assert parse(count(2, char("a")), "", "a") == ParseError(
+        SourcePos("", 1, 2), [SysUnExpect(value="")]
+    )
+    assert parse(count(2, char("a")), "", "aa") == ["a", "a"]
+    assert parse(count(2, char("a")), "", "aaa") == ["a", "a"]
+
 
 # -- | @chainr p op x@ parses /zero/ or more occurrences of @p@,
 # -- separated by @op@ Returns a value obtained by a /right/ associative
@@ -405,6 +460,7 @@ def _test_end_by1():
 # chainr :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m (a -> a -> a) -> a -> ParsecT s u m a
 # {-# INLINABLE chainr #-}
 # chainr p op x       = chainr1 p op <|> return x
+
 
 # -- | @chainl p op x@ parses /zero/ or more occurrences of @p@,
 # -- separated by @op@. Returns a value obtained by a /left/ associative
@@ -441,6 +497,33 @@ def _test_end_by1():
 #                                     ; rest (f x y)
 #                                     }
 #                                 <|> return x
+
+
+def chainl1(
+    p: Parsec[_S, _U, _T],
+    op: Parsec[_S, _U, Callable[[_T, _T], _T]],
+) -> Parsec[_S, _U, _T]:
+    def rest(x: _T) -> Parsec[_S, _U, _T]:
+        return op.and_then(lambda f: p.and_then(lambda y: rest(f(x, y)))).or_else(
+            Parsec[_S, _U, _T].pure(x)
+        )
+
+    return p.and_then(rest)
+
+
+def _test_chain1():
+    from entoli.parsec.char import char
+
+    p = char("1").map(int)
+    op = char("+").map(lambda _: lambda x, y: x + y)
+
+    assert parse(chainl1(p, op), "", "") == ParseError(
+        SourcePos("", 1, 1), [SysUnExpect(value="")]
+    )
+    assert parse(chainl1(p, op), "", "1") == 1
+    assert parse(chainl1(p, op), "", "1+1") == 2
+    assert parse(chainl1(p, op), "", "1+1+1") == 3
+
 
 # -- | @chainr1 p op x@ parses /one/ or more occurrences of |p|,
 # -- separated by @op@ Returns a value obtained by a /right/ associative
