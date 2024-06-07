@@ -43,7 +43,6 @@ _T = TypeVar("_T")
 
 # type _M[_B] = Monad[_B]
 
-
 # newtype ParsecT s u m a
 #     = ParsecT {unParser :: forall b .
 #                  State s u
@@ -71,11 +70,28 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
 
     @staticmethod
     def fmap(f: Callable[[_A], _B], x: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _B]":
-        return parser_map(f, x)
+        # return parser_map(f, x)
+        def _un_parser(
+            s: State[_S, _U],
+            cok: Callable[[_B, State[_S, _U], ParseError], Any],
+            cerr: Callable[[ParseError], Any],
+            eok: Callable[[_B, State[_S, _U], ParseError], Any],
+            eerr: Callable[[ParseError], Any],
+        ) -> Any:
+            return x.un_parser(
+                s,
+                lambda a, s_, err: cok(f(a), s_, err),
+                cerr,
+                lambda a, s_, err: eok(f(a), s_, err),
+                eerr,
+            )
+
+        return Parsec(_un_parser)
 
     @staticmethod
     def pure(x: _A) -> "Parsec[_S, _U, _A]":
-        return parser_pure(x)
+        # return parser_pure(x)
+        return Parsec(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
 
     @staticmethod
     def ap(
@@ -87,7 +103,48 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     def bind(
         x: "Parsec[_S, _U, _A]", f: Callable[[_A], "Parsec[_S, _U, _B]"]
     ) -> "Parsec[_S, _U, _B]":
-        return parser_bind(x, f)
+        # return parser_bind(x, f)
+        def _un_parser(
+            s: State[_S, _U],
+            cok: Callable[[_B, State[_S, _U], ParseError], Any],
+            cerr: Callable[[ParseError], Any],
+            eok: Callable[[_B, State[_S, _U], ParseError], Any],
+            eerr: Callable[[ParseError], Any],
+        ) -> Any:
+            def mcok(x, s, err):
+                if err == unknown_error(s):
+                    return f(x).un_parser(s, cok, cerr, cok, cerr)
+                else:
+                    pcok = cok
+                    pcerr = cerr
+
+                    def peok(x, s, err_):
+                        return cok(x, s, merge_error(err, err_))
+
+                    def peerr(err_):
+                        return cerr(merge_error(err, err_))
+
+                    return f(x).un_parser(s, pcok, pcerr, peok, peerr)
+
+            def meok(x, s, err):
+                if err == unknown_error(s):
+                    return f(x).un_parser(s, cok, cerr, eok, eerr)
+                else:
+                    pcok = cok
+
+                    def peok(x, s, err_):
+                        return eok(x, s, merge_error(err, err_))
+
+                    pcerr = cerr
+
+                    def peerr(err_):
+                        return eerr(merge_error(err, err_))
+
+                    return f(x).un_parser(s, pcok, pcerr, peok, peerr)
+
+            return x.un_parser(s, mcok, cerr, meok, eerr)
+
+        return Parsec(_un_parser)
 
     @staticmethod
     def mzero() -> "Parsec[_S, _U, _A]":
@@ -163,6 +220,26 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
 
     def many(self) -> "Parsec[_S, _U, Iterable[_A]]":
         return self.some().or_else(Parsec.pure([]))
+
+
+# -- | The parser @unexpected msg@ always fails with an unexpected error
+# -- message @msg@ without consuming any input.
+# --
+# -- The parsers 'fail', ('<?>') and @unexpected@ are the three parsers
+# -- used to generate error messages. Of these, only ('<?>') is commonly
+# -- used. For an example of the use of @unexpected@, see the definition
+# -- of 'Text.Parsec.Combinator.notFollowedBy'.
+
+# unexpected :: (Stream s m t) => String -> ParsecT s u m a
+# unexpected msg
+#     = ParsecT $ \s _ _ _ eerr ->
+#       eerr $ newErrorMessage (UnExpect msg) (statePos s)
+
+
+def unexpected(msg: str) -> Parsec[_S, _U, _A]:
+    return Parsec(
+        lambda s, _0, _1, _2, eerr: eerr(new_error_message(UnExpect(msg), s.pos))
+    )
 
 
 # runParsecT :: Monad m => ParsecT s u m a -> State s u -> m (Consumed (m (Reply s u a)))
@@ -1309,3 +1386,53 @@ def update_state(
     f: Callable[[_U], _U],
 ) -> Parsec[Iterable[_T], _U, None]:
     return modify_state(f)
+
+
+# -- | The parser @try p@ behaves like parser @p@, except that it
+# -- pretends that it hasn't consumed any input when an error occurs.
+# --
+# -- This combinator is used whenever arbitrary look ahead is needed.
+# -- Since it pretends that it hasn't consumed any input when @p@ fails,
+# -- the ('<|>') combinator will try its second alternative even when the
+# -- first parser failed while consuming input.
+# --
+# -- The @try@ combinator can for example be used to distinguish
+# -- identifiers and reserved words. Both reserved words and identifiers
+# -- are a sequence of letters. Whenever we expect a certain reserved
+# -- word where we can also expect an identifier we have to use the @try@
+# -- combinator. Suppose we write:
+# --
+# -- >  expr        = letExpr <|> identifier <?> "expression"
+# -- >
+# -- >  letExpr     = do{ string "let"; ... }
+# -- >  identifier  = many1 letter
+# --
+# -- If the user writes \"lexical\", the parser fails with: @unexpected
+# -- \'x\', expecting \'t\' in \"let\"@. Indeed, since the ('<|>') combinator
+# -- only tries alternatives when the first alternative hasn't consumed
+# -- input, the @identifier@ parser is never tried (because the prefix
+# -- \"le\" of the @string \"let\"@ parser is already consumed). The
+# -- right behaviour can be obtained by adding the @try@ combinator:
+# --
+# -- >  expr        = letExpr <|> identifier <?> "expression"
+# -- >
+# -- >  letExpr     = do{ try (string "let"); ... }
+# -- >  identifier  = many1 letter
+
+# try :: ParsecT s u m a -> ParsecT s u m a
+# try p =
+#     ParsecT $ \s cok _ eok eerr ->
+#     unParser p s cok eerr eok eerr
+
+
+def try_(p: Parsec[_S, _U, _A]) -> Parsec[_S, _U, _A]:
+    def _un_parser(
+        s: State[_S, _U],
+        cok: Callable[[_A, State[_S, _U], ParseError], Any],
+        _cerr: Callable[[ParseError], Any],
+        eok: Callable[[_A, State[_S, _U], ParseError], Any],
+        eerr: Callable[[ParseError], Any],
+    ) -> Any:
+        return p.un_parser(s, cok, eerr, eok, eerr)
+
+    return Parsec(_un_parser)

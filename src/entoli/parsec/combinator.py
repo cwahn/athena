@@ -7,10 +7,13 @@ from entoli.parsec.prim import (
     Parsec,
     SourcePos,
     SysUnExpect,
+    UnExpect,
     many1,
     parse,
     skip_many,
     token_prim,
+    try_,
+    unexpected,
 )
 from entoli.prelude import append, foldr
 
@@ -627,15 +630,6 @@ def _test_any_token():
     assert parse(any_token, "", "aa") == "a"
 
 
-# -- | This parser only succeeds at the end of the input. This is not a
-# -- primitive parser but it is defined using 'notFollowedBy'.
-# --
-# -- >  eof  = notFollowedBy anyToken <?> "end of input"
-
-# eof :: (Stream s m t, Show t) => ParsecT s u m ()
-# {-# INLINABLE eof #-}
-# eof                 = notFollowedBy anyToken <?> "end of input"
-
 # -- | @notFollowedBy p@ only succeeds when parser @p@ fails. This parser
 # -- does not consume any input. This parser can be used to implement the
 # -- \'longest match\' rule. For example, when recognizing keywords (for
@@ -665,6 +659,48 @@ def _test_any_token():
 #                            <|> return ()
 #                           )
 
+
+def not_followed_by(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, None]:
+    return try_(
+        try_(p)
+        .and_then(lambda c: unexpected(str(c)))
+        .or_else(Parsec[_S, _U, None].pure(None))
+    )
+
+
+def _test_not_followed_by():
+    from entoli.parsec.char import char
+
+    assert parse(not_followed_by(char("a")), "", "") is None
+    assert parse(not_followed_by(char("a")), "", "a") == ParseError(
+        SourcePos("", 1, 2), [UnExpect(value="a")]
+    )
+    assert parse(not_followed_by(char("a")), "", "b") is None
+    assert parse(not_followed_by(char("a")), "", "aa") == ParseError(
+        SourcePos("", 1, 2), [UnExpect(value="a")]
+    )
+    assert parse(not_followed_by(char("a")), "", "ab") == ParseError(
+        SourcePos("", 1, 2), [UnExpect(value="a")]
+    )
+
+
+# -- | This parser only succeeds at the end of the input. This is not a
+# -- primitive parser but it is defined using 'notFollowedBy'.
+# --
+# -- >  eof  = notFollowedBy anyToken <?> "end of input"
+
+# eof :: (Stream s m t, Show t) => ParsecT s u m ()
+# {-# INLINABLE eof #-}
+# eof                 = notFollowedBy anyToken <?> "end of input"
+
+eof = not_followed_by(any_token)
+
+
+def _test_eof():
+    assert parse(eof, "", "") is None
+    assert parse(eof, "", "a") == ParseError(SourcePos("", 1, 1), [UnExpect(value="a")])
+
+
 # -- | @manyTill p end@ applies parser @p@ /zero/ or more times until
 # -- parser @end@ succeeds. Returns the list of values returned by @p@.
 # -- This parser can be used to scan comments:
@@ -683,6 +719,40 @@ def _test_any_token():
 #                       scan  = do{ _ <- end; return [] }
 #                             <|>
 #                               do{ x <- p; xs <- scan; return (x:xs) }
+
+
+def many_till(
+    p: Parsec[_S, _U, _T],
+    end: Parsec[_S, _U, _V],
+) -> Parsec[_S, _U, Iterable[_T]]:
+    def scan() -> Parsec[_S, _U, Iterable[_T]]:
+        return end.then(Parsec[_S, _U, Iterable[_T]].pure([])).or_else(
+            p.and_then(
+                lambda x: scan().and_then(
+                    lambda xs: Parsec[_S, _U, Iterable[_T]].pure(append([x], xs))
+                )
+            )
+        )
+
+    return scan()
+
+
+def _test_many_till():
+    from entoli.parsec.char import char
+
+    assert parse(many_till(char("a"), char("b")), "", "") == ParseError(
+        SourcePos("", 1, 1),
+        [SysUnExpect(""), SysUnExpect("")],
+    )
+    assert parse(many_till(char("a"), char("b")), "", "a") == ParseError(
+        SourcePos("", 1, 2),
+        [SysUnExpect(""), SysUnExpect("")],
+    )
+    assert parse(many_till(char("a"), char("b")), "", "b") == []
+    assert parse(many_till(char("a"), char("b")), "", "ab") == ["a"]
+    assert parse(many_till(char("a"), char("b")), "", "aab") == ["a", "a"]
+    assert parse(many_till(char("a"), char("b")), "", "aaab") == ["a", "a", "a"]
+
 
 # -- | @parserTrace label@ is an impure function, implemented with "Debug.Trace" that
 # -- prints to the console the remaining parser state at the time it is invoked.
