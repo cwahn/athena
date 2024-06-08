@@ -273,8 +273,16 @@ def _test_nth():
     assert nth([1, 2, 3], 2) == 3
 
 
+# def null(xs: Iterable[_A]) -> bool:
+#     return not any(True for _ in xs)
+
+
 def null(xs: Iterable[_A]) -> bool:
-    return not any(True for _ in xs)
+    try:
+        next(iter(xs))
+        return False
+    except StopIteration:
+        return True
 
 
 def _test_null():
@@ -606,12 +614,19 @@ get_str = Io(input)
 #         return Nothing()
 
 
+# def uncons(xs: Iterable[_A]) -> Maybe[Tuple[_A, Iterable[_A]]]:
+#     iterator = iter(xs)
+#     try:
+#         return Just((next(iterator), Seq(lambda: copy.deepcopy(iterator))))
+#     except StopIteration:
+#         return Nothing()
+
+
 def uncons(xs: Iterable[_A]) -> Maybe[Tuple[_A, Iterable[_A]]]:
-    iterator = iter(xs)
-    try:
-        return Just((next(iterator), Seq(lambda: copy.deepcopy(iterator))))
-    except StopIteration:
+    if null(xs):
         return Nothing()
+    else:
+        return Just((head(xs), tail(xs)))
 
 
 def _test_uncons():

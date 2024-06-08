@@ -858,8 +858,6 @@ def token_prim_ex(
             case Nothing():
                 return eerr(new_error_message(SysUnExpect(""), s.pos))
             case Just((c, cs)):
-                # ! temp # printing cs at this point breaks logic.
-                print("cs", cs)
                 match test(c):
                     case Nothing():
                         return eerr(
