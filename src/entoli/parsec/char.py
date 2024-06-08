@@ -431,7 +431,7 @@ def _test_any_char():
 def string(s: str) -> Parsec[Iterable[str], _U, str]:
     return tokens(
         lambda cs: "".join(cs), lambda pos, cs: update_pos_char(pos, "".join(cs)), s
-    ).map(lambda cs: "".join(cs))
+    ).fmap(lambda cs: "".join(cs))
 
 
 def _test_string():
@@ -461,7 +461,7 @@ def _test_string():
 def string_(s: str) -> Parsec[Iterable[str], _U, str]:
     return tokens(
         lambda cs: "".join(cs), lambda pos, cs: update_pos_char(pos, "".join(cs)), s
-    ).map(lambda cs: "".join(cs))
+    ).fmap(lambda cs: "".join(cs))
 
 
 def _test_string_():

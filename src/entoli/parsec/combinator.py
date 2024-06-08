@@ -111,7 +111,7 @@ def _test_option():
 
 
 def option_maybe(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, Maybe[_T]]:
-    return option(Nothing(), p.map(Just))
+    return option(Nothing(), p.fmap(Just))
 
 
 def _test_option_maybe():
@@ -132,7 +132,7 @@ def _test_option_maybe():
 def optional(
     p: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, None]:
-    return p.map(lambda _: None).or_else(Parsec.pure(None))
+    return p.fmap(lambda _: None).or_else(Parsec.pure(None))
 
 
 def _test_optional():
@@ -223,7 +223,7 @@ def sep_by1(
     p: Parsec[_S, _U, _T],
     sep: Parsec[_S, _U, _V],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return p.and_then(lambda x: many(sep.then(p)).map(lambda xs: append([x], xs)))
+    return p.and_then(lambda x: many(sep.then(p)).fmap(lambda xs: append([x], xs)))
 
 
 def _test_sep_by1():
@@ -406,7 +406,7 @@ def count(
         return Parsec[_S, _U, Iterable[_T]].pure([])
     else:
         return foldr(
-            lambda x, y: x.and_then(lambda x: y.map(lambda xs: append([x], xs))),
+            lambda x, y: x.and_then(lambda x: y.fmap(lambda xs: append([x], xs))),
             Parsec.pure([]),
             [p] * n,
         )
@@ -464,8 +464,8 @@ def chainl(
 
 
 def _test_chainl():
-    p = char("1").map(int)
-    op = char("+").map(lambda _: lambda x, y: x + y)
+    p = char("1").fmap(int)
+    op = char("+").fmap(lambda _: lambda x, y: x + y)
 
     assert parse(chainl(p, op, 9), "", "") == 9
     assert parse(chainl(p, op, 9), "", "1") == 1
@@ -513,8 +513,8 @@ def chainl1(
 
 
 def _test_chain1():
-    p = char("1").map(int)
-    op = char("+").map(lambda _: lambda x, y: x + y)
+    p = char("1").fmap(int)
+    op = char("+").fmap(lambda _: lambda x, y: x + y)
 
     assert parse(chainl1(p, op), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]
@@ -548,7 +548,7 @@ def chainr1(
 ) -> Parsec[_S, _U, _T]:
     def scan() -> Parsec[_S, _U, _T]:
         def rest(x: _T) -> Parsec[_S, _U, _T]:
-            return op.and_then(lambda f: scan().map(lambda y: f(x, y))).or_else(
+            return op.and_then(lambda f: scan().fmap(lambda y: f(x, y))).or_else(
                 Parsec.pure(x)
             )
 
@@ -558,8 +558,8 @@ def chainr1(
 
 
 def _test_chainr1():
-    p = char("1").map(int)
-    op = char("+").map(lambda _: lambda x, y: x + y)
+    p = char("1").fmap(int)
+    op = char("+").fmap(lambda _: lambda x, y: x + y)
 
     assert parse(chainr1(p, op), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]

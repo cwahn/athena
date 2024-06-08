@@ -1,10 +1,14 @@
 from collections.abc import Sequence
+from operator import and_
 from typing import Callable, Generic, Iterable, Iterator, List, Optional, Type, TypeVar
 
+from entoli.base.typeclass import Monad
+
 _A = TypeVar("_A")
+_B = TypeVar("_B")
 
 
-class Seq(Generic[_A], Sequence):
+class Seq(Generic[_A], Monad[_A], Sequence):
     """A resuable iterable"""
 
     def __init__(
@@ -12,6 +16,33 @@ class Seq(Generic[_A], Sequence):
     ):
         self.f = f
         self._cached_list = cached_list
+
+    def fmap(self, f: Callable[[_A], _B]) -> "Seq[_B]":
+        # def generator() -> Iterator[_B]:
+        #     yield from map(f, self)
+
+        # return Seq(generator)
+
+        return Seq(lambda: map(f, self))
+
+    @staticmethod
+    def pure(x: _A) -> "Seq[_A]":
+        return Seq.from_list([x])
+
+    def ap(self, f: "Seq[Callable[[_A], _B]]") -> "Seq[_B]":
+        def generator() -> Iterator[_B]:
+            for g in f:
+                for x in self:
+                    yield g(x)
+
+        return Seq(generator)
+
+    def and_then(self, f: Callable[[_A], "Seq[_B]"]) -> "Seq[_B]":
+        def generator() -> Iterator[_B]:
+            for x in self:
+                yield from f(x)
+
+        return Seq(generator)
 
     @staticmethod
     def from_list(xs: List[_A]) -> "Seq[_A]":

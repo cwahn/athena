@@ -39,7 +39,7 @@ class HttpSession:
 
 
 def get_session(host: str, port: int = 80) -> Io[HttpSession]:
-    return get_conn(host, port).map(lambda conn: HttpSession(conn))
+    return get_conn(host, port).fmap(lambda conn: HttpSession(conn))
 
 
 def session_from_conn(conn: HTTPConnection) -> Io[HttpSession]:
