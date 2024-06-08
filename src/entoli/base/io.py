@@ -9,7 +9,7 @@ _A = TypeVar("_A")
 _B = TypeVar("_B")
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Io(Generic[_A]):
     action: Callable[[], _A]
 

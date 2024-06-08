@@ -1,4 +1,5 @@
 import builtins
+import copy
 import json
 from operator import le
 import re
@@ -87,7 +88,7 @@ def _test_elem():
     assert elem(1, [1, 2, 3])
     assert not elem(4, [1, 2, 3])
 
-    @dataclass
+    @dataclass(frozen=True, slots=True)
     class PyIdent:
         module: List[str]
         qual_name: List[str]
@@ -110,12 +111,9 @@ def _test_elem():
 # ) -> Applicative[Iterable[_B]]:
 
 
-
 # def sequence(
 #     mas : Iterable[Monad[_A]]
 # ) -> Monad[Iterable[_A]]:
-
-
 
 
 # Miscellaneous functions
@@ -611,7 +609,7 @@ get_str = Io(input)
 def uncons(xs: Iterable[_A]) -> Maybe[Tuple[_A, Iterable[_A]]]:
     iterator = iter(xs)
     try:
-        return Just((next(iterator), Seq(lambda: (i for i in iterator))))
+        return Just((next(iterator), Seq(lambda: copy.deepcopy(iterator))))
     except StopIteration:
         return Nothing()
 

@@ -8,7 +8,7 @@ _A = TypeVar("_A")
 _B = TypeVar("_B")
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Identity(Generic[_A], Monad[_A]):
     run: _A
 

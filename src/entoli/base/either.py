@@ -33,7 +33,7 @@ _B = TypeVar("_B")
 #     def unwrap_or(self, default: _A) -> _A: ...
 
 
-# @dataclass
+# @dataclass(frozen=True, slots=True)
 # class Left(Generic[_A]):
 #     value: _A
 
@@ -78,7 +78,7 @@ _B = TypeVar("_B")
 #         return default
 
 
-# @dataclass
+# @dataclass(frozen=True, slots=True)
 # # class Right(_Ei[_A]):
 # class Right(Generic[_A]):
 #     value: _A

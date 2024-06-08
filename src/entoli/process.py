@@ -61,7 +61,7 @@ def read_process_with_exit_code(
 # Shell interaction functions
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class CreateProcess:
     command: str
     use_shell: bool = True

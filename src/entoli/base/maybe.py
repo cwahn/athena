@@ -35,7 +35,7 @@ _B = TypeVar("_B")
 type Maybe[_A] = Just[_A] | Nothing
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 # class Just(_Maybe[_A]):
 class Just(Generic[_A]):
     value: _A
@@ -85,7 +85,7 @@ class Just(Generic[_A]):
 
 
 # class Nothing(_Maybe):
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Nothing:
     _instance = None
 
@@ -136,27 +136,3 @@ class Nothing:
 
     def unwrap_or(self, default: _A) -> _A:
         return default
-
-
-# maybe_42 = Just(42)
-# maybe_42_ = Nothing()
-
-# if __name__ == "__main__":
-#     if maybe_42:
-#         print(maybe_42.unwrap())
-#     else:
-#         print("Nothing")
-
-#     if maybe_42_:
-#         print(maybe_42_.unwrap())
-#     else:
-#         print("Nothing")
-
-#     maybe_21 = maybe_42.map(lambda x: x // 2)
-
-#     def _maybe_int(x: int) -> Maybe[int]:
-#         return Just(x)
-
-#     maybe_int = _maybe_int(42)
-
-#     maybe_21 = maybe_int.map(lambda x: x // 2)

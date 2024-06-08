@@ -13,7 +13,6 @@ from typing import (
 )
 
 
-from entoli.base import maybe
 from entoli.base.either import Either
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -30,6 +29,7 @@ from entoli.prelude import (
     id,
     null,
     uncons,
+    filter,
 )
 
 
@@ -55,7 +55,7 @@ _T = TypeVar("_T")
 #      deriving ( Typeable )
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     un_parser: Callable[
         [
@@ -68,29 +68,30 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
         Any,
     ]
 
+    # parsecMap :: (a -> b) -> ParsecT s u m a -> ParsecT s u m b
+    # parsecMap f p
+    #     = ParsecT $ \s cok cerr eok eerr ->
+    #       unParser p s (cok . f) cerr (eok . f) eerr
+
     @staticmethod
     def fmap(f: Callable[[_A], _B], x: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _B]":
-        # return parser_map(f, x)
-        def _un_parser(
-            s: State[_S, _U],
-            cok: Callable[[_B, State[_S, _U], ParseError], Any],
-            cerr: Callable[[ParseError], Any],
-            eok: Callable[[_B, State[_S, _U], ParseError], Any],
-            eerr: Callable[[ParseError], Any],
-        ) -> Any:
-            return x.un_parser(
+        return Parsec(
+            lambda s, cok, cerr, eok, eerr: x.un_parser(
                 s,
                 lambda a, s_, err: cok(f(a), s_, err),
                 cerr,
                 lambda a, s_, err: eok(f(a), s_, err),
                 eerr,
             )
+        )
 
-        return Parsec(_un_parser)
+    # parserReturn :: a -> ParsecT s u m a
+    # parserReturn x
+    #     = ParsecT $ \s _ _ eok _ ->
+    #       eok x s (unknownError s)
 
     @staticmethod
     def pure(x: _A) -> "Parsec[_S, _U, _A]":
-        # return parser_pure(x)
         return Parsec(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
 
     @staticmethod
@@ -99,11 +100,53 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     ) -> "Parsec[_S, _U, _B]":
         return Parsec.bind(f, lambda f_: Parsec.bind(x, lambda x_: Parsec.pure(f_(x_))))
 
+    # parserBind :: ParsecT s u m a -> (a -> ParsecT s u m b) -> ParsecT s u m b
+    # {-# INLINE parserBind #-}
+    # parserBind m k
+    #   = ParsecT $ \s cok cerr eok eerr ->
+    #     let
+    #         -- consumed-okay case for m
+    #         mcok x s err
+    #           | errorIsUnknown err = unParser (k x) s cok cerr cok cerr
+    #           | otherwise =
+    #             let
+    #                  -- if (k x) consumes, those go straight up
+    #                  pcok = cok
+    #                  pcerr = cerr
+
+    #                  -- if (k x) doesn't consume input, but is okay,
+    #                  -- we still return in the consumed continuation
+    #                  peok x s err' = cok x s (mergeError err err')
+
+    #                  -- if (k x) doesn't consume input, but errors,
+    #                  -- we return the error in the 'consumed-error'
+    #                  -- continuation
+    #                  peerr err' = cerr (mergeError err err')
+    #             in  unParser (k x) s pcok pcerr peok peerr
+
+    #         -- empty-ok case for m
+    #         meok x s err
+    #           | errorIsUnknown err = unParser (k x) s cok cerr eok eerr
+    #           | otherwise =
+    #             let
+    #                 -- in these cases, (k x) can return as empty
+    #                 pcok = cok
+    #                 peok x s err' = eok x s (mergeError err err')
+    #                 pcerr = cerr
+    #                 peerr err' = eerr (mergeError err err')
+    #             in  unParser (k x) s pcok pcerr peok peerr
+    #         -- consumed-error case for m
+    #         mcerr = cerr
+
+    #         -- empty-error case for m
+    #         meerr = eerr
+
+    #     in unParser m s mcok mcerr meok meerr
+
     @staticmethod
     def bind(
         x: "Parsec[_S, _U, _A]", f: Callable[[_A], "Parsec[_S, _U, _B]"]
     ) -> "Parsec[_S, _U, _B]":
-        # return parser_bind(x, f)
         def _un_parser(
             s: State[_S, _U],
             cok: Callable[[_B, State[_S, _U], ParseError], Any],
@@ -317,14 +360,14 @@ def make_parser(
     return Parsec(_un_parser)
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class State(Generic[_S, _U]):
     input: _S
     pos: SourcePos
     user_state: _U
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class SourcePos:
     name: str
     line: int
@@ -403,22 +446,22 @@ type Message = SysUnExpect | UnExpect | Expect | RawMessage
 # RawMessage = NewType("RawMessage", str)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SysUnExpect:
     value: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class UnExpect:
     value: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Expect:
     value: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RawMessage:
     value: str
 
@@ -433,7 +476,7 @@ class _TestMessage:
         assert RawMessage("a") == RawMessage("a")
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class ParseError:
     source_pos: SourcePos
     message: Iterable[Message]
@@ -510,12 +553,12 @@ def merge_error(
 type MbConsumed[_A] = Consumed[_A] | Empty
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Consumed(Generic[_A]):
     value: _A
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Empty(Generic[_A]):
     value: _A
 
@@ -523,147 +566,16 @@ class Empty(Generic[_A]):
 type Reply[_S, _U, _A] = Reply_Error | Reply_Ok[_S, _U, _A]
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Reply_Error:
     err: ParseError
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Reply_Ok(Generic[_S, _U, _A]):
     a: _A
     state: State[_S, _U]
     err: ParseError
-
-
-# parsecMap :: (a -> b) -> ParsecT s u m a -> ParsecT s u m b
-# parsecMap f p
-#     = ParsecT $ \s cok cerr eok eerr ->
-#       unParser p s (cok . f) cerr (eok . f) eerr
-
-
-def parser_map(
-    f: Callable[[_A], _B],
-    parser: Parsec[_S, _U, _A],
-) -> Parsec[_S, _U, _B]:
-    def _un_parser(
-        s: State[_S, _U],
-        consumed_ok: Callable[[_B, State[_S, _U], ParseError], Any],
-        consumed_error: Callable[[ParseError], Any],
-        empty_ok: Callable[[_B, State[_S, _U], ParseError], Any],
-        empty_error: Callable[[ParseError], Any],
-    ) -> Any:
-        return parser.un_parser(
-            s,
-            lambda a, s_, err: consumed_ok(f(a), s_, err),
-            consumed_error,
-            lambda a, s_, err: empty_ok(f(a), s_, err),
-            empty_error,
-        )
-
-    return Parsec(_un_parser)
-
-
-# parserReturn :: a -> ParsecT s u m a
-# parserReturn x
-#     = ParsecT $ \s _ _ eok _ ->
-#       eok x s (unknownError s)
-
-
-def parser_pure(
-    x: _A,
-) -> Parsec[_S, _U, _A]:
-    return Parsec(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
-
-
-# parserBind :: ParsecT s u m a -> (a -> ParsecT s u m b) -> ParsecT s u m b
-# {-# INLINE parserBind #-}
-# parserBind m k
-#   = ParsecT $ \s cok cerr eok eerr ->
-#     let
-#         -- consumed-okay case for m
-#         mcok x s err
-#           | errorIsUnknown err = unParser (k x) s cok cerr cok cerr
-#           | otherwise =
-#             let
-#                  -- if (k x) consumes, those go straight up
-#                  pcok = cok
-#                  pcerr = cerr
-
-#                  -- if (k x) doesn't consume input, but is okay,
-#                  -- we still return in the consumed continuation
-#                  peok x s err' = cok x s (mergeError err err')
-
-#                  -- if (k x) doesn't consume input, but errors,
-#                  -- we return the error in the 'consumed-error'
-#                  -- continuation
-#                  peerr err' = cerr (mergeError err err')
-#             in  unParser (k x) s pcok pcerr peok peerr
-
-#         -- empty-ok case for m
-#         meok x s err
-#           | errorIsUnknown err = unParser (k x) s cok cerr eok eerr
-#           | otherwise =
-#             let
-#                 -- in these cases, (k x) can return as empty
-#                 pcok = cok
-#                 peok x s err' = eok x s (mergeError err err')
-#                 pcerr = cerr
-#                 peerr err' = eerr (mergeError err err')
-#             in  unParser (k x) s pcok pcerr peok peerr
-#         -- consumed-error case for m
-#         mcerr = cerr
-
-#         -- empty-error case for m
-#         meerr = eerr
-
-#     in unParser m s mcok mcerr meok meerr
-
-
-def parser_bind(
-    parser: Parsec[_S, _U, _A],
-    f: Callable[[_A], Parsec[_S, _U, _B]],
-) -> Parsec[_S, _U, _B]:
-    def _un_parser(
-        s: State[_S, _U],
-        cok: Callable[[_B, State[_S, _U], ParseError], Any],
-        cerr: Callable[[ParseError], Any],
-        eok: Callable[[_B, State[_S, _U], ParseError], Any],
-        eerr: Callable[[ParseError], Any],
-    ) -> Any:
-        def mcok(x, s, err):
-            if err == unknown_error(s):
-                return f(x).un_parser(s, cok, cerr, cok, cerr)
-            else:
-                pcok = cok
-                pcerr = cerr
-
-                def peok(x, s, err_):
-                    return cok(x, s, merge_error(err, err_))
-
-                def peerr(err_):
-                    return cerr(merge_error(err, err_))
-
-                return f(x).un_parser(s, pcok, pcerr, peok, peerr)
-
-        def meok(x, s, err):
-            if err == unknown_error(s):
-                return f(x).un_parser(s, cok, cerr, eok, eerr)
-            else:
-                pcok = cok
-
-                def peok(x, s, err_):
-                    return eok(x, s, merge_error(err, err_))
-
-                pcerr = cerr
-
-                def peerr(err_):
-                    return eerr(merge_error(err, err_))
-
-                return f(x).un_parser(s, pcok, pcerr, peok, peerr)
-
-        return parser.un_parser(s, mcok, cerr, meok, eerr)
-
-    return Parsec(_un_parser)
 
 
 # tokens :: (Stream s m t, Eq t)
@@ -946,15 +858,17 @@ def token_prim_ex(
             case Nothing():
                 return eerr(new_error_message(SysUnExpect(""), s.pos))
             case Just((c, cs)):
+                # ! temp # printing cs at this point breaks logic.
+                print("cs", cs)
                 match test(c):
-                    case Just(x):
-                        new_pos = next_pos(s.pos, c, cs)
-                        new_state = State(cs, new_pos, s.user_state)
-                        return cok(x, new_state, new_error_unknown(new_pos))
                     case Nothing():
                         return eerr(
                             new_error_message(SysUnExpect(show_token(c)), s.pos)
                         )
+                    case Just(x):
+                        new_pos = next_pos(s.pos, c, cs)
+                        new_state = State(cs, new_pos, s.user_state)
+                        return cok(x, new_state, new_error_unknown(new_pos))
 
     return Parsec(_un_parser)
 

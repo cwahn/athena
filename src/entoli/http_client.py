@@ -30,6 +30,7 @@ def close_conn(conn: HTTPConnection) -> Io[None]:
     return Io(lambda: conn.close())
 
 
+# ! Not frozen dataclass
 @dataclass
 class HttpSession:
     conn: HTTPConnection

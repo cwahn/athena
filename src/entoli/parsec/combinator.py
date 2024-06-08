@@ -1,4 +1,3 @@
-from ast import Call
 from typing import Callable, Iterable, TypeVar
 
 from entoli.base.maybe import Just, Maybe, Nothing
@@ -17,6 +16,9 @@ from entoli.parsec.prim import (
 )
 from entoli.prelude import append, foldr
 
+# Imported for testing
+from entoli.parsec.char import char
+
 
 _S = TypeVar("_S")
 _U = TypeVar("_U")
@@ -30,8 +32,6 @@ def some(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, Iterable[_T]]:
 
 
 def _test_some():
-    from entoli.parsec.char import char
-
     assert parse(some(char("a")), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]
     )
@@ -47,8 +47,6 @@ def many(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, Iterable[_T]]:
 
 
 def _test_many():
-    from entoli.parsec.char import char
-
     assert parse(many(char("a")), "", "") == []
     assert parse(many(char("a")), "", "a") == ["a"]
     assert parse(many(char("a")), "", "aa") == ["a", "a"]
@@ -65,12 +63,10 @@ def _test_many():
 
 
 def choice(ps: Iterable[Parsec[_S, _U, _T]]) -> Parsec[_S, _U, _T]:
-    return foldr(lambda x, y: x.or_else(y), Parsec[_S, _U, _T].mzero(), ps)
+    return foldr(lambda x, y: x.or_else(y), Parsec.mzero(), ps)
 
 
 def _test_choice():
-    from entoli.parsec.char import char
-
     assert parse(choice([char("a"), char("b")]), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value=""), SysUnExpect(value="")]
     )
@@ -95,12 +91,10 @@ def _test_choice():
 
 
 def option(x: _T, p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, _T]:
-    return p.or_else(Parsec[_S, _U, _T].pure(x))
+    return p.or_else(Parsec.pure(x))
 
 
 def _test_option():
-    from entoli.parsec.char import char
-
     assert parse(option("a", char("a")), "", "") == "a"
     assert parse(option("a", char("a")), "", "a") == "a"
     assert parse(option("a", char("a")), "", "b") == "a"
@@ -121,8 +115,6 @@ def option_maybe(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, Maybe[_T]]:
 
 
 def _test_option_maybe():
-    from entoli.parsec.char import char
-
     assert parse(option_maybe(char("a")), "", "") == Nothing()
     assert parse(option_maybe(char("a")), "", "a") == Just("a")
     assert parse(option_maybe(char("a")), "", "b") == Nothing()
@@ -140,12 +132,10 @@ def _test_option_maybe():
 def optional(
     p: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, None]:
-    return p.map(lambda _: None).or_else(Parsec[_S, _U, None].pure(None))
+    return p.map(lambda _: None).or_else(Parsec.pure(None))
 
 
 def _test_optional():
-    from entoli.parsec.char import char
-
     assert parse(optional(char("a")), "", "") is None
     assert parse(optional(char("a")), "", "a") is None
     assert parse(optional(char("a")), "", "b") is None
@@ -169,12 +159,10 @@ def between(
     close: Parsec[_S, _U, _T],
     p: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, _T]:
-    return open.then(p).and_then(lambda x: close.then(Parsec[_S, _U, _T].pure(x)))
+    return open.then(p).and_then(lambda x: close.then(Parsec.pure(x)))
 
 
 def _test_between():
-    from entoli.parsec.char import char
-
     assert parse(between(char("["), char("]"), char("a")), "", "[a]") == "a"
     assert parse(between(char("["), char("]"), char("a")), "", "[b]") == ParseError(
         SourcePos("", 1, 2), [SysUnExpect(value="b")]
@@ -199,8 +187,6 @@ def skip_many1(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, None]:
 
 
 def _test_skip_many1():
-    from entoli.parsec.char import char
-
     assert parse(skip_many1(char("a")), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]
     )
@@ -241,8 +227,6 @@ def sep_by1(
 
 
 def _test_sep_by1():
-    from entoli.parsec.char import char
-
     assert parse(sep_by1(char("a"), char(",")), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]
     )
@@ -267,12 +251,10 @@ def sep_by(
     p: Parsec[_S, _U, _T],
     sep: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return sep_by1(p, sep).or_else(Parsec[_S, _U, Iterable[_T]].pure([]))
+    return sep_by1(p, sep).or_else(Parsec.pure([]))
 
 
 def _test_sep_by():
-    from entoli.parsec.char import char
-
     assert parse(sep_by(char("a"), char(",")), "", "") == []
     assert parse(sep_by(char("a"), char(",")), "", "a") == ["a"]
     assert parse(sep_by(char("a"), char(",")), "", "a,a") == ["a", "a"]
@@ -295,12 +277,10 @@ def sep_end_by(
     p: Parsec[_S, _U, _T],
     sep: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return sep_end_by1(p, sep).or_else(Parsec[_S, _U, Iterable[_T]].pure([]))
+    return sep_end_by1(p, sep).or_else(Parsec.pure([]))
 
 
 def _test_sep_end_by():
-    from entoli.parsec.char import char
-
     assert parse(sep_end_by(char("a"), char(",")), "", "") == []
     assert parse(sep_end_by(char("a"), char(",")), "", "a") == ["a"]
     assert parse(sep_end_by(char("a"), char(",")), "", "a,") == ["a"]
@@ -329,16 +309,12 @@ def sep_end_by1(
 ) -> Parsec[_S, _U, Iterable[_T]]:
     return p.and_then(
         lambda x: sep.then(
-            sep_end_by(p, sep).and_then(
-                lambda xs: Parsec[_S, _U, Iterable[_T]].pure(append([x], xs))
-            )
-        ).or_else(Parsec[_S, _U, Iterable[_T]].pure([x]))
+            sep_end_by(p, sep).and_then(lambda xs: Parsec.pure(append([x], xs)))
+        ).or_else(Parsec.pure([x]))
     )
 
 
 def _test_sep_end_by1():
-    from entoli.parsec.char import char
-
     assert parse(sep_end_by1(char("a"), char(",")), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]
     )
@@ -362,12 +338,10 @@ def end_by1(
     p: Parsec[_S, _U, _T],
     sep: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return many1(p.and_then(lambda x: sep.then(Parsec[_S, _U, _T].pure(x))))
+    return many1(p.and_then(lambda x: sep.then(Parsec.pure(x))))
 
 
 def _test_end_by1():
-    from entoli.parsec.char import char
-
     assert parse(end_by1(char("a"), char(",")), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]
     )
@@ -397,12 +371,10 @@ def end_by(
     p: Parsec[_S, _U, _T],
     sep: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return many(p.and_then(lambda x: sep.then(Parsec[_S, _U, _T].pure(x))))
+    return many(p.and_then(lambda x: sep.then(Parsec.pure(x))))
 
 
 def _test_end_by():
-    from entoli.parsec.char import char
-
     assert parse(end_by(char("a"), char(",")), "", "") == []
     assert parse(end_by(char("a"), char(",")), "", "a") == ParseError(
         SourcePos(name="", line=1, col=2), [SysUnExpect(value="")]
@@ -435,14 +407,12 @@ def count(
     else:
         return foldr(
             lambda x, y: x.and_then(lambda x: y.map(lambda xs: append([x], xs))),
-            Parsec[_S, _U, Iterable[_T]].pure([]),
+            Parsec.pure([]),
             [p] * n,
         )
 
 
 def _test_count():
-    from entoli.parsec.char import char
-
     assert parse(count(0, char("a")), "", "") == []
     assert parse(count(1, char("a")), "", "") == ParseError(
         SourcePos("", 1, 1), [SysUnExpect(value="")]
@@ -471,7 +441,7 @@ def chainr(
     op: Parsec[_S, _U, Callable[[_T, _T], _T]],
     x: _T,
 ) -> Parsec[_S, _U, _T]:
-    return chainr1(p, op).or_else(Parsec[_S, _U, _T].pure(x))
+    return chainr1(p, op).or_else(Parsec.pure(x))
 
 
 # -- | @chainl p op x@ parses /zero/ or more occurrences of @p@,
@@ -490,12 +460,10 @@ def chainl(
     op: Parsec[_S, _U, Callable[[_T, _T], _T]],
     x: _T,
 ) -> Parsec[_S, _U, _T]:
-    return chainl1(p, op).or_else(Parsec[_S, _U, _T].pure(x))
+    return chainl1(p, op).or_else(Parsec.pure(x))
 
 
 def _test_chainl():
-    from entoli.parsec.char import char
-
     p = char("1").map(int)
     op = char("+").map(lambda _: lambda x, y: x + y)
 
@@ -538,15 +506,13 @@ def chainl1(
 ) -> Parsec[_S, _U, _T]:
     def rest(x: _T) -> Parsec[_S, _U, _T]:
         return op.and_then(lambda f: p.and_then(lambda y: rest(f(x, y)))).or_else(
-            Parsec[_S, _U, _T].pure(x)
+            Parsec.pure(x)
         )
 
     return p.and_then(rest)
 
 
 def _test_chain1():
-    from entoli.parsec.char import char
-
     p = char("1").map(int)
     op = char("+").map(lambda _: lambda x, y: x + y)
 
@@ -583,7 +549,7 @@ def chainr1(
     def scan() -> Parsec[_S, _U, _T]:
         def rest(x: _T) -> Parsec[_S, _U, _T]:
             return op.and_then(lambda f: scan().map(lambda y: f(x, y))).or_else(
-                Parsec[_S, _U, _T].pure(x)
+                Parsec.pure(x)
             )
 
         return p.and_then(rest)
@@ -592,8 +558,6 @@ def chainr1(
 
 
 def _test_chainr1():
-    from entoli.parsec.char import char
-
     p = char("1").map(int)
     op = char("+").map(lambda _: lambda x, y: x + y)
 
@@ -669,8 +633,6 @@ def not_followed_by(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, None]:
 
 
 def _test_not_followed_by():
-    from entoli.parsec.char import char
-
     assert parse(not_followed_by(char("a")), "", "") is None
     assert parse(not_followed_by(char("a")), "", "a") == ParseError(
         SourcePos("", 1, 2), [UnExpect(value="a")]
@@ -725,21 +687,16 @@ def many_till(
     p: Parsec[_S, _U, _T],
     end: Parsec[_S, _U, _V],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    def scan() -> Parsec[_S, _U, Iterable[_T]]:
-        return end.then(Parsec[_S, _U, Iterable[_T]].pure([])).or_else(
-            p.and_then(
-                lambda x: scan().and_then(
-                    lambda xs: Parsec[_S, _U, Iterable[_T]].pure(append([x], xs))
-                )
+    return end.then(Parsec.pure([])).or_else(
+        p.and_then(
+            lambda x: many_till(p, end).and_then(
+                lambda xs: Parsec.pure(append([x], xs))
             )
         )
-
-    return scan()
+    )
 
 
 def _test_many_till():
-    from entoli.parsec.char import char
-
     assert parse(many_till(char("a"), char("b")), "", "") == ParseError(
         SourcePos("", 1, 1),
         [SysUnExpect(""), SysUnExpect("")],
@@ -749,9 +706,29 @@ def _test_many_till():
         [SysUnExpect(""), SysUnExpect("")],
     )
     assert parse(many_till(char("a"), char("b")), "", "b") == []
-    assert parse(many_till(char("a"), char("b")), "", "ab") == ["a"]
-    assert parse(many_till(char("a"), char("b")), "", "aab") == ["a", "a"]
-    assert parse(many_till(char("a"), char("b")), "", "aaab") == ["a", "a", "a"]
+    assert parse(many_till(char("a"), char("b")), "", "ab") == ["a"]  # works
+    assert parse(many_till(char("a"), char("b")), "", "aab") == [
+        "a",
+        "a",
+    ]  # fail with Error
+    assert parse(many_till(char("a"), char("b")), "", "aaab") == [
+        "a",
+        "a",
+        "a",
+    ]  # fail with only two as
+    assert parse(many_till(char("a"), char("b")), "", "aaaab") == [
+        "a",
+        "a",
+        "a",
+        "a",
+    ]  # fail with error
+    assert parse(many_till(char("a"), char("b")), "", "aaaaab") == [
+        "a",
+        "a",
+        "a",
+        "a",
+        "a",
+    ]  # fail with only three as
 
 
 # -- | @parserTrace label@ is an impure function, implemented with "Debug.Trace" that
