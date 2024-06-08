@@ -219,7 +219,7 @@ def _test_crlf():
 # def end_of_line() -> ParsecT[Iterable[str], _U, str]:
 #     return new_line.or_else(crlf)
 
-end_of_line = new_line.or_else(crlf)
+end_of_line = new_line.mplus(crlf)
 
 
 def _test_end_of_line():

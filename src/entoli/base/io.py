@@ -13,10 +13,6 @@ _B = TypeVar("_B")
 class Io(Generic[_A], Monad[_A]):
     action: Callable[[], _A]
 
-    # @staticmethod
-    # def fmap(f: Callable[[_A], _B], x: Io[_A]) -> Io[_B]:
-    #     return Io(lambda: f(x.action()))
-
     def fmap(self, f: Callable[[_A], _B]) -> Io[_B]:
         return Io(lambda: f(self.action()))
 
@@ -24,29 +20,11 @@ class Io(Generic[_A], Monad[_A]):
     def pure(x: _A) -> Io[_A]:
         return Io(lambda: x)
 
-    # @staticmethod
-    # def ap(f: Io[Callable[[_A], _B]], x: Io[_A]) -> Io[_B]:
-    #     return Io(lambda: f.action()(x.action()))
-
     def ap(self, f: Io[Callable[[_A], _B]]) -> Io[_B]:
         return Io(lambda: f.action()(self.action()))
-
-    # @staticmethod
-    # def bind(x: Io[_A], f: Callable[[_A], Io[_B]]) -> Io[_B]:
-    #     return Io(lambda: f(x.action()).action())
 
     def and_then(self, f: Callable[[_A], Io[_B]]) -> Io[_B]:
         return Io(lambda: f(self.action()).action())
 
-    # def fmap(self, f: Callable[[_A], _B]) -> Io[_B]:
-    #     return Io(lambda: f(self.action()))
-
-    # def and_then(self, f: Callable[[_A], Io[_B]]) -> Io[_B]:
-    #     return Io(lambda: f(self.action()).action())
-
     def then(self, x: Io[_B]) -> Io[_B]:
-        def inner() -> _B:
-            self.action()
-            return x.action()
-
-        return Io(inner)
+        return self.and_then(lambda _: x)

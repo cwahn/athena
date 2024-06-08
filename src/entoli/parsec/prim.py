@@ -7,6 +7,7 @@ from typing import (
     Iterable,
     NewType,
     Protocol,
+    Self,
     Tuple,
     Type,
     TypeVar,
@@ -73,18 +74,6 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     #     = ParsecT $ \s cok cerr eok eerr ->
     #       unParser p s (cok . f) cerr (eok . f) eerr
 
-    # @staticmethod
-    # def fmap(f: Callable[[_A], _B], x: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _B]":
-    #     return Parsec(
-    #         lambda s, cok, cerr, eok, eerr: x.un_parser(
-    #             s,
-    #             lambda a, s_, err: cok(f(a), s_, err),
-    #             cerr,
-    #             lambda a, s_, err: eok(f(a), s_, err),
-    #             eerr,
-    #         )
-    #     )
-
     def fmap(self, f: Callable[[_A], _B]) -> "Parsec[_S, _U, _B]":
         return Parsec(
             lambda s, cok, cerr, eok, eerr: self.un_parser(
@@ -104,17 +93,6 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     @staticmethod
     def pure(x: _A) -> "Parsec[_S, _U, _A]":
         return Parsec(lambda s, _0, _1, eok, _2: eok(x, s, unknown_error(s)))
-
-    # @staticmethod
-    # def ap(
-    #     f: "Parsec[_S, _U, Callable[[_A], _B]]", x: "Parsec[_S, _U, _A]"
-    # ) -> "Parsec[_S, _U, _B]":
-    #     return Parsec.bind(f, lambda f_: Parsec.bind(x, lambda x_: Parsec.pure(f_(x_))))
-
-    # def ap(self, f: "Parsec[_S, _U, Callable[[_A], _B]]") -> "Parsec[_S, _U, _B]":
-    #     return Parsec.bind(
-    #         f, lambda f_: Parsec.bind(self, lambda x_: Parsec.pure(f_(x_)))
-    #     )
 
     def ap(self, f: "Parsec[_S, _U, Callable[[_A], _B]]") -> "Parsec[_S, _U, _B]":
         return f.and_then(lambda f_: self.and_then(lambda x_: Parsec.pure(f_(x_))))
@@ -161,52 +139,6 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     #         meerr = eerr
 
     #     in unParser m s mcok mcerr meok meerr
-
-    # @staticmethod
-    # def bind(
-    #     x: "Parsec[_S, _U, _A]", f: Callable[[_A], "Parsec[_S, _U, _B]"]
-    # ) -> "Parsec[_S, _U, _B]":
-    #     def _un_parser(
-    #         s: State[_S, _U],
-    #         cok: Callable[[_B, State[_S, _U], ParseError], Any],
-    #         cerr: Callable[[ParseError], Any],
-    #         eok: Callable[[_B, State[_S, _U], ParseError], Any],
-    #         eerr: Callable[[ParseError], Any],
-    #     ) -> Any:
-    #         def mcok(x, s, err):
-    #             if err == unknown_error(s):
-    #                 return f(x).un_parser(s, cok, cerr, cok, cerr)
-    #             else:
-    #                 pcok = cok
-    #                 pcerr = cerr
-
-    #                 def peok(x, s, err_):
-    #                     return cok(x, s, merge_error(err, err_))
-
-    #                 def peerr(err_):
-    #                     return cerr(merge_error(err, err_))
-
-    #                 return f(x).un_parser(s, pcok, pcerr, peok, peerr)
-
-    #         def meok(x, s, err):
-    #             if err == unknown_error(s):
-    #                 return f(x).un_parser(s, cok, cerr, eok, eerr)
-    #             else:
-    #                 pcok = cok
-
-    #                 def peok(x, s, err_):
-    #                     return eok(x, s, merge_error(err, err_))
-
-    #                 pcerr = cerr
-
-    #                 def peerr(err_):
-    #                     return eerr(merge_error(err, err_))
-
-    #                 return f(x).un_parser(s, pcok, pcerr, peok, peerr)
-
-    #         return x.un_parser(s, mcok, cerr, meok, eerr)
-
-    #     return Parsec(_un_parser)
 
     def and_then(self, f: Callable[[_A], "Parsec[_S, _U, _B]"]) -> "Parsec[_S, _U, _B]":
         def _un_parser(
@@ -255,7 +187,7 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     def mzero() -> "Parsec[_S, _U, _A]":
         return Parsec(lambda s, _0, _1, _2, eerr: eerr(unknown_error(s)))
 
-    # arserPlus :: ParsecT s u m a -> ParsecT s u m a -> ParsecT s u m a
+    # parserPlus :: ParsecT s u m a -> ParsecT s u m a -> ParsecT s u m a
     # {-# INLINE parserPlus #-}
     # parserPlus m n
     #     = ParsecT $ \s cok cerr eok eerr ->
@@ -267,7 +199,7 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     #               in unParser n s cok cerr neok neerr
     #       in unParser m s cok cerr eok meerr
 
-    def or_else(self, other: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _A]":
+    def mplus(self, other: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _A]":
         def _un_parser(
             s: State[_S, _U],
             cok: Callable[[_A, State[_S, _U], ParseError], Any],
@@ -292,17 +224,8 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
     def empty() -> "Parsec[_S, _U, _A]":
         return Parsec(lambda s, _0, _1, _2, eerr: eerr(unknown_error(s)))
 
-    # def or_else(self, other: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _A]":
-    #     return self.mplus(other)
-
-    # def fmap(self, f: Callable[[_A], _B]) -> "Parsec[_S, _U, _B]":
-    #     return Parsec.fmap(f, self)
-
-    # def and_then(self, f: Callable[[_A], "Parsec[_S, _U, _B]"]) -> "Parsec[_S, _U, _B]":
-    #     return Parsec.bind(self, f)
-
-    # def then(self, x: "Parsec[_S, _U, _B]") -> "Parsec[_S, _U, _B]":
-    #     return Parsec.bind(self, lambda _: x)
+    def or_else(self, other: "Parsec[_S, _U, _A]") -> "Parsec[_S, _U, _A]":
+        return self.mplus(other)
 
     def then(self, x: "Parsec[_S, _U, _B]") -> "Parsec[_S, _U, _B]":
         return self.and_then(lambda _: x)
@@ -323,11 +246,11 @@ class Parsec(Generic[_S, _U, _A], MonadPlus[_A], Alternative[_A]):
         return self.and_then(
             lambda x: self.some()
             .fmap(lambda xs: append([x], xs))
-            .or_else(Parsec.pure([x]))
+            .mplus(Parsec.pure([x]))
         )
 
     def many(self) -> "Parsec[_S, _U, Iterable[_A]]":
-        return self.some().or_else(Parsec.pure([]))
+        return self.some().mplus(Parsec.pure([]))
 
 
 # -- | The parser @unexpected msg@ always fails with an unexpected error

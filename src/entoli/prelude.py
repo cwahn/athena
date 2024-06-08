@@ -1,9 +1,5 @@
 import builtins
-import copy
-import json
-from operator import le
-import re
-from typing import Any, List, Tuple, TypeVar, Iterable, Callable, Optional, Iterator
+from typing import List, Tuple, TypeVar, Iterable, Callable
 import functools
 
 from dataclasses import dataclass
@@ -11,7 +7,7 @@ from dataclasses import dataclass
 from entoli.base.io import Io
 from entoli.base.maybe import Just, Maybe, Nothing
 from entoli.base.seq import Seq
-from entoli.base.typeclass import Applicative, Monad, Ord, ToBool
+from entoli.base.typeclass import Ord, ToBool
 
 
 _A = TypeVar("_A")
@@ -271,10 +267,6 @@ def _test_nth():
     assert nth([1], 0) == 1
     assert nth([1, 2], 1) == 2
     assert nth([1, 2, 3], 2) == 3
-
-
-# def null(xs: Iterable[_A]) -> bool:
-#     return not any(True for _ in xs)
 
 
 def null(xs: Iterable[_A]) -> bool:

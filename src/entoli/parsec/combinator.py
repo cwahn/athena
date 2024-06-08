@@ -63,7 +63,7 @@ def _test_many():
 
 
 def choice(ps: Iterable[Parsec[_S, _U, _T]]) -> Parsec[_S, _U, _T]:
-    return foldr(lambda x, y: x.or_else(y), Parsec.mzero(), ps)
+    return foldr(lambda x, y: x.mplus(y), Parsec.mzero(), ps)
 
 
 def _test_choice():
@@ -91,7 +91,7 @@ def _test_choice():
 
 
 def option(x: _T, p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, _T]:
-    return p.or_else(Parsec.pure(x))
+    return p.mplus(Parsec.pure(x))
 
 
 def _test_option():
@@ -132,7 +132,7 @@ def _test_option_maybe():
 def optional(
     p: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, None]:
-    return p.fmap(lambda _: None).or_else(Parsec.pure(None))
+    return p.fmap(lambda _: None).mplus(Parsec.pure(None))
 
 
 def _test_optional():
@@ -251,7 +251,7 @@ def sep_by(
     p: Parsec[_S, _U, _T],
     sep: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return sep_by1(p, sep).or_else(Parsec.pure([]))
+    return sep_by1(p, sep).mplus(Parsec.pure([]))
 
 
 def _test_sep_by():
@@ -277,7 +277,7 @@ def sep_end_by(
     p: Parsec[_S, _U, _T],
     sep: Parsec[_S, _U, _T],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return sep_end_by1(p, sep).or_else(Parsec.pure([]))
+    return sep_end_by1(p, sep).mplus(Parsec.pure([]))
 
 
 def _test_sep_end_by():
@@ -310,7 +310,7 @@ def sep_end_by1(
     return p.and_then(
         lambda x: sep.then(
             sep_end_by(p, sep).and_then(lambda xs: Parsec.pure(append([x], xs)))
-        ).or_else(Parsec.pure([x]))
+        ).mplus(Parsec.pure([x]))
     )
 
 
@@ -441,7 +441,7 @@ def chainr(
     op: Parsec[_S, _U, Callable[[_T, _T], _T]],
     x: _T,
 ) -> Parsec[_S, _U, _T]:
-    return chainr1(p, op).or_else(Parsec.pure(x))
+    return chainr1(p, op).mplus(Parsec.pure(x))
 
 
 # -- | @chainl p op x@ parses /zero/ or more occurrences of @p@,
@@ -460,7 +460,7 @@ def chainl(
     op: Parsec[_S, _U, Callable[[_T, _T], _T]],
     x: _T,
 ) -> Parsec[_S, _U, _T]:
-    return chainl1(p, op).or_else(Parsec.pure(x))
+    return chainl1(p, op).mplus(Parsec.pure(x))
 
 
 def _test_chainl():
@@ -505,7 +505,7 @@ def chainl1(
     op: Parsec[_S, _U, Callable[[_T, _T], _T]],
 ) -> Parsec[_S, _U, _T]:
     def rest(x: _T) -> Parsec[_S, _U, _T]:
-        return op.and_then(lambda f: p.and_then(lambda y: rest(f(x, y)))).or_else(
+        return op.and_then(lambda f: p.and_then(lambda y: rest(f(x, y)))).mplus(
             Parsec.pure(x)
         )
 
@@ -548,7 +548,7 @@ def chainr1(
 ) -> Parsec[_S, _U, _T]:
     def scan() -> Parsec[_S, _U, _T]:
         def rest(x: _T) -> Parsec[_S, _U, _T]:
-            return op.and_then(lambda f: scan().fmap(lambda y: f(x, y))).or_else(
+            return op.and_then(lambda f: scan().fmap(lambda y: f(x, y))).mplus(
                 Parsec.pure(x)
             )
 
@@ -628,7 +628,7 @@ def not_followed_by(p: Parsec[_S, _U, _T]) -> Parsec[_S, _U, None]:
     return try_(
         try_(p)
         .and_then(lambda c: unexpected(str(c)))
-        .or_else(Parsec[_S, _U, None].pure(None))
+        .mplus(Parsec[_S, _U, None].pure(None))
     )
 
 
@@ -687,7 +687,7 @@ def many_till(
     p: Parsec[_S, _U, _T],
     end: Parsec[_S, _U, _V],
 ) -> Parsec[_S, _U, Iterable[_T]]:
-    return end.then(Parsec.pure([])).or_else(
+    return end.then(Parsec.pure([])).mplus(
         p.and_then(
             lambda x: many_till(p, end).and_then(
                 lambda xs: Parsec.pure(append([x], xs))

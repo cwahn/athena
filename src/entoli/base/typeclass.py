@@ -22,15 +22,15 @@ class Applicative(Functor[_A_co], Protocol[_A_co]):
     # ap :: Applicative f => f (a -> b) -> f a -> f b
     def ap(self, f: Any[Callable[[_A_co], Any]]) -> Applicative[Any]: ...
 
+
 _MB = TypeVar("_MB", bound="Monad")
 
-class Monad(Applicative[_A_co], Protocol[_A_co]):
-    # @staticmethod
-    # def bind(x: Any[_A], f: Callable[[_A], Any[_B]]) -> Any[_B]: ...
 
+class Monad(Applicative[_A_co], Protocol[_A_co]):
     # m a -> (a -> m b) -> m b
     def and_then(self, f: Callable[[_A], Any[_B]]) -> Monad[Any]: ...
 
+    # ! Can't express with current type system
     # def then(self, x: Any[_B]) -> Monad[_B]:
     #     return self.and_then(lambda _: x)
 
@@ -41,7 +41,7 @@ class Alternative(Applicative[_A_co], Protocol[_A_co]):
 
     def or_else(self, other: Self) -> Self: ...
 
-    # ! Hard to express with current type system
+    # ! Can't express with current type system
 
     # # some v = (:) <$> v <*> many v
     # def some(self) -> Alternative[Iterable[_A_co]]:
@@ -58,7 +58,7 @@ class MonadPlus(Monad[_A_co], Protocol[_A_co]):
     @staticmethod
     def mzero() -> MonadPlus[_A_co]: ...
 
-    def or_else(self, other: Self) -> Self: ...
+    def mplus(self, other: Self) -> Self: ...
 
 
 class Ord(Protocol):
