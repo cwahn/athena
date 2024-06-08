@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="entoli",
-    version="0.1.1",
-    author="Your Name",
+    version="0.1.3",
+    author="Chanwoo Ahn",
     author_email="cwahn0904@gmail.com",
     description="A Python functional programming library",
     long_description=open("README.md").read(),
