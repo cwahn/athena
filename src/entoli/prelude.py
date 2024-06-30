@@ -345,6 +345,7 @@ def _test_concat_map():
 
 # todo iterate, repeat, replicate, cycle
 
+
 # Sublists
 
 
@@ -534,7 +535,7 @@ def _test_unzip():
 
 
 def lines(s: str) -> Iterable[str]:
-    return Seq.from_list(s.splitlines())
+    return Seq.from_iterable(s.splitlines())
 
 
 def _test_lines():
@@ -545,7 +546,7 @@ def _test_lines():
 
 
 def words(s: str) -> Iterable[str]:
-    return Seq.from_list(s.split())
+    return Seq.from_iterable(s.split())
 
 
 def _test_words():
@@ -878,7 +879,7 @@ _Ord_B = TypeVar("_Ord_B", bound=Ord | int)
 
 
 def sort(seq: Iterable[_Ord_A]) -> Iterable[_Ord_A]:
-    return Seq.from_list(sorted(seq))
+    return Seq.from_iterable(sorted(seq))
 
 
 def _test_sort():
@@ -889,7 +890,7 @@ def _test_sort():
 
 
 def sort_on(f: Callable[[_A], _Ord_B], seq: Iterable[_A]) -> Iterable[_A]:
-    return Seq.from_list(sorted(seq, key=f))
+    return Seq.from_iterable(sorted(seq, key=f))
 
 
 def _test_sort_on():

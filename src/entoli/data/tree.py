@@ -5,7 +5,18 @@ from dataclasses import dataclass
 import operator
 from typing import Callable, Generic, Iterable, Tuple, Type, TypeVar
 
-from entoli.prelude import map, append, concat_map, foldl, length, null
+from entoli.data.seq import Seq
+from entoli.prelude import (
+    concat,
+    map,
+    append,
+    concat_map,
+    foldl,
+    length,
+    null,
+    take_while,
+    transpose,
+)
 
 
 _A = TypeVar("_A")
@@ -61,7 +72,29 @@ class Tree(Generic[_A]):
         )
 
     def flatten(self) -> Iterable[_A]:
+        """
+        Returns the elements of a tree in pre-order.
+        """
         return append([self.value], concat_map(lambda x: x.flatten(), self.children))
+
+    def levels(self) -> Iterable[Iterable[_A]]:
+        """
+        Return a sequence of values at each level of the tree.
+        """
+
+        return append(
+            Seq.pure(Seq.pure(self.value)),
+            map(
+                lambda ass: concat(ass),
+                transpose(map(lambda t: t.levels(), self.children)),
+            ),
+        )
+
+    def depth(self) -> int:
+        if null(self.children):
+            return 1
+        else:
+            return 1 + max(map(lambda t: t.depth(), self.children))
 
     # @staticmethod
     # def build(value: _A, get_children: Callable[[_A], Iterable[_A]]) -> Tree[_A]:
@@ -274,6 +307,20 @@ class _TestTree:
 
         tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
         assert tree_1.flatten() == [1, 2, 3]
+
+    def test_levels(self):
+        tree_0 = Tree(0, [])
+        assert tree_0.levels() == [[0]]
+
+        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
+        assert tree_1.levels() == [[1], [2, 3]]
+
+    def _test_depth(self):
+        tree_0 = Tree(0, [])
+        assert tree_0.depth() == 1
+
+        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
+        assert tree_1.depth() == 2
 
 
 # def _test_build(self):
