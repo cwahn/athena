@@ -290,6 +290,36 @@ def _test_unfold_tree():
     )
 
 
+# todo unfold_tree_m
+
+# todo unfold_tree_bf
+
+
+def fold_tree(
+    f: Callable[[_A, Iterable[_B]], _B],
+    tree: Tree[_A],
+) -> _B:
+    """
+    Fold a tree using a function f.
+    f should take a value and an iterable of results from folding children.
+    """
+    return f(
+        tree.value,
+        map(
+            lambda x: fold_tree(f, x),
+            tree.children,
+        ),
+    )
+
+
+def _test_fold_tree():
+    tree_0 = Tree(0, [])
+    assert fold_tree(lambda x, cs: x + sum(cs), tree_0) == 0
+
+    tree1 = Tree(1, [Tree(2, []), Tree(3, [])])
+    assert fold_tree(lambda x, cs: x + sum(cs), tree1) == 6
+
+
 def merge_trees(trees: Iterable[Tree[_A]]) -> Tree[Iterable[_A]]:
     """
     Takes an iterable of trees and merges them into a single tree of iterable of values.
