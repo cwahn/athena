@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
@@ -18,20 +19,14 @@ _A = TypeVar("_A")
 _B = TypeVar("_B")
 
 
-class Seq(Generic[_A], Sequence, Monad[_A]):
+@dataclass(frozen=True)
+class Seq(Generic[_A], Monad[_A], Sequence):
     """A resuable iterable"""
 
-    def __init__(
-        self, f: Callable[[], Iterator[_A]], cached_list: Optional[List[_A]] = None
-    ):
-        self.f = f
-        self._cached_list = cached_list
+    _generator: Callable[[], Iterator[_A]]
 
     def __iter__(self):
-        if self._cached_list is not None:
-            return iter(self._cached_list)
-        else:
-            return self.f()
+        return self._generator()
 
     def __len__(self) -> int:
         return sum(1 for _ in self)
@@ -40,20 +35,12 @@ class Seq(Generic[_A], Sequence, Monad[_A]):
         return list(self)[idx]
 
     def __contains__(self, value: object) -> bool:
-        if self._cached_list is not None:
-            return value in self._cached_list
-        else:
-            return any(value == x for x in self.f())
+        return any(value == x for x in self._generator())
 
     def __eq__(self, other):
-        if isinstance(other, Seq):
-            return self.eval() == other.eval()
-        elif isinstance(other, list):
-            return self.eval() == other
-        else:
-            raise TypeError(f"Cannot compare Seq with {type(other)}")
+        return self.list() == list(other)
 
-    def __add__(self, other: Iterable[_A]) -> "Seq[_A]":
+    def __add__(self, other: Iterable[_A]) -> Seq[_A]:
         def concat_generator() -> Iterator[_A]:
             yield from self
             yield from other
@@ -61,16 +48,8 @@ class Seq(Generic[_A], Sequence, Monad[_A]):
         return Seq(concat_generator)
 
     # ! Mutating operation is not allowed
-    # def __iadd__(self, other: "Seq[_A]") -> "Seq[_A]":
-    #     def concat_generator() -> Iterator[_A]:
-    #         yield from self
-    #         yield from other
-
-    #     # Create a new Seq with combined generator and reassign it to self
-    #     new_seq = Seq(concat_generator)
-    #     self.f = new_seq.f
-    #     self._cached_list = None  # Invalidate the cache
-    #     return self
+    # def __iadd__(self, other: Seq[_A]) -> Seq[_A]:
+    #     self._cached_list = list(self) + list(other)
 
     def __bool__(self) -> bool:
         return any(True for _ in self)
@@ -84,30 +63,30 @@ class Seq(Generic[_A], Sequence, Monad[_A]):
     def __hash__(self) -> int:
         return hash(tuple(self))
 
-    def __copy__(self) -> "Seq[_A]":
-        return Seq(self.f, self._cached_list)
+    def __copy__(self) -> Seq[_A]:
+        return Seq(self._generator)
 
-    def __deepcopy__(self, memo) -> "Seq[_A]":
-        return Seq(self.f, self._cached_list)
+    def __deepcopy__(self, memo) -> Seq[_A]:
+        return Seq(self._generator)
 
     def __reversed__(self) -> Iterator[_A]:
-        if self._cached_list is not None:
-            return reversed(self._cached_list)
-        else:
-            self._cached_list = list(self.f())
-            return reversed(self._cached_list)
+        """
+        Return a reversed iterator of the sequence
+        Not recommended to use this method since it will evaluate the whole sequence
+        Instead, evaluate the seq explicitly with list() and then reverse it
+        """
+
+        return reversed(list(self))
 
     @staticmethod
     def from_iterable(xs: Iterable[_A]) -> Seq[_A]:
         def generator() -> Iterator[_A]:
             return iter(xs)
 
-        return Seq(generator, list(xs))
+        return Seq(generator)
 
-    def eval(self) -> Iterable[_A]:
-        if self._cached_list is None:
-            self._cached_list = list(self.f())
-        return self._cached_list
+    def list(self) -> Iterable[_A]:
+        return list(self._generator())
 
     def fmap(self, f: Callable[[_A], _B]) -> Seq[_B]:
         def generator() -> Iterator[_B]:
@@ -117,7 +96,7 @@ class Seq(Generic[_A], Sequence, Monad[_A]):
         return Seq(generator)
 
     @staticmethod
-    def pure(x: _A) -> "Seq[_A]":
+    def pure(x: _A) -> Seq[_A]:
         return Seq.from_iterable([x])
 
     def ap(self, f: Seq[Callable[[_A], _B]]) -> Seq[_B]:

@@ -3,6 +3,7 @@ import builtins
 from collections import deque
 from dataclasses import dataclass
 import operator
+from re import T
 from typing import Callable, Generic, Iterable, Tuple, Type, TypeVar
 
 from entoli.base.typeclass import _B, Monad
@@ -15,7 +16,6 @@ from entoli.prelude import (
     foldl,
     length,
     null,
-    take_while,
     transpose,
 )
 
@@ -457,3 +457,32 @@ def _test_merge_trees():
             Tree([3, 6], []),
         ],
     )
+
+
+def split_tree(tree: Tree[Iterable[_A]]) -> Iterable[Tree[_A]]:
+    """
+    Takes a tree of iterable values and splits it into a list of trees.
+    Each iterable value in the tree should have the same length.
+    """
+
+    if null(tree.children):
+        return map(lambda x: Tree(x, []), tree.value)
+    else:
+        splitted_tree = map(lambda t: split_tree(t), tree.children)
+
+        return map(
+            lambda p: Tree(p[0], p[1]),
+            builtins.zip(tree.value, transpose(splitted_tree)),
+        )
+
+
+def _test_split_tree():
+    tree_0 = Tree([], [Tree([], []), Tree([], [])])
+    assert split_tree(tree_0) == [] # type: ignore
+
+    tree_1 = Tree([1, 2], [Tree([3, 4], []), Tree([5, 6], [])])
+
+    assert split_tree(tree_1) == [ # type: ignore
+        Tree(1, [Tree(3, []), Tree(5, [])]),
+        Tree(2, [Tree(4, []), Tree(6, [])]),
+    ]
