@@ -29,6 +29,40 @@ class Tree(Generic[_A]):
                 )
             )
 
+    @staticmethod
+    def unfold(f: Callable[[_B], Tuple[_A, Iterable[_B]]], seed: _B) -> Tree[_A]:
+        """
+        Unfold a tree from a seed value.
+        f should return a tuple of value and children.
+        If f doesn't return empty iterable at leaf nodes, the tree will be infinite.
+        """
+
+        value, children = f(seed)
+
+        return Tree(
+            value,
+            map(
+                lambda x: Tree.unfold(f, x),
+                children,
+            ),
+        )
+
+    def fold(self, f: Callable[[_A, Iterable[_B]], _B]) -> _B:
+        """
+        Fold a tree using a function f.
+        f should take a value and an iterable of results from folding children.
+        """
+        return f(
+            self.value,
+            map(
+                lambda x: x.fold(f),
+                self.children,
+            ),
+        )
+
+    def flatten(self) -> Iterable[_A]:
+        return append([self.value], concat_map(lambda x: x.flatten(), self.children))
+
     # @staticmethod
     # def build(value: _A, get_children: Callable[[_A], Iterable[_A]]) -> Tree[_A]:
     #     """
@@ -190,7 +224,58 @@ class Tree(Generic[_A]):
     #     return result
 
 
-# class _TestTree:
+class _TestTree:
+    def _test_unfold(self):
+        def f(x: int) -> Tuple[bool, Iterable[int]]:
+            if x >= 3:
+                return (x % 2 == 0, [])
+            else:
+                return (x % 2 == 0, [x + 1, x + 2])
+
+        assert Tree.unfold(f, 0) == Tree(
+            True,  # 0
+            [
+                Tree(
+                    False,  # 1
+                    [
+                        Tree(
+                            True,  # 2
+                            [
+                                Tree(False, []),  # 3
+                                Tree(True, []),  # 4
+                            ],
+                        ),
+                        Tree(
+                            False,  # 3
+                            [],
+                        ),
+                    ],
+                ),
+                Tree(
+                    True,  # 2
+                    [
+                        Tree(False, []),  # 3
+                        Tree(True, []),  # 4
+                    ],
+                ),
+            ],
+        )
+
+    def _test_fold(self):
+        tree_0 = Tree(0, [])
+        assert tree_0.fold(lambda x, cs: x + sum(cs)) == 0
+
+        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
+        assert tree_1.fold(lambda x, cs: x + sum(cs)) == 6
+
+    def _test_flatten(self):
+        tree_0 = Tree(0, [])
+        assert tree_0.flatten() == [0]
+
+        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
+        assert tree_1.flatten() == [1, 2, 3]
+
+
 # def _test_build(self):
 #     def get_children(x):
 #         if x == 1:
