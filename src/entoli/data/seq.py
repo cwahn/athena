@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from operator import and_
 from typing import Callable, Generic, Iterable, Iterator, List, Optional, Type, TypeVar
 
 from entoli.base.typeclass import Monad

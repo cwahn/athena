@@ -8,7 +8,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from entoli.base.maybe import Just
+from entoli.data.maybe import Just
 from entoli.process import (
     create_process,
     h_get_contents,

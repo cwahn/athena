@@ -9,7 +9,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from entoli.base.maybe import Just
+from entoli.data.maybe import Just
 from entoli.system import create_dir_if_missing, file_exists, write_file
 from entoli.process import (
     CreateProcess,

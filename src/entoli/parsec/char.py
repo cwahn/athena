@@ -1,5 +1,5 @@
 from typing import Callable, Iterable, TypeVar
-from entoli.base.maybe import Just, Maybe, Nothing
+from entoli.data.maybe import Just, Maybe, Nothing
 from entoli.parsec.prim import (
     Expect,
     Parsec,

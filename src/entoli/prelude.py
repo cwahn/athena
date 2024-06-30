@@ -5,8 +5,8 @@ import functools
 from dataclasses import dataclass
 
 from entoli.base.io import Io
-from entoli.base.maybe import Just, Maybe, Nothing
-from entoli.base.seq import Seq
+from entoli.data.maybe import Just, Maybe, Nothing
+from entoli.data.seq import Seq
 from entoli.base.typeclass import Ord, ToBool
 
 

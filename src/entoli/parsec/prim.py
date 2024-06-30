@@ -14,9 +14,9 @@ from typing import (
 )
 
 
-from entoli.base.either import Either
+from entoli.data.either import Either
 from entoli.base.io import Io
-from entoli.base.maybe import Just, Maybe, Nothing
+from entoli.data.maybe import Just, Maybe, Nothing
 from entoli.base.typeclass import _A, _B, _A_co, Alternative, Functor, Monad, MonadPlus
 from entoli.prelude import (
     append,

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, Protocol, TypeVar
 
-from .typeclass import Monad
+from ..base.typeclass import Monad
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")

@@ -1,7 +1,7 @@
 from pathlib import Path
 import subprocess
 from entoli.base.io import Io
-from entoli.base.maybe import Just, Maybe, Nothing
+from entoli.data.maybe import Just, Maybe, Nothing
 from typing import IO, List, Tuple, Dict, Any
 from dataclasses import dataclass, field
 
