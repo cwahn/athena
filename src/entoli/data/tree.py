@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import operator
 from typing import Callable, Generic, Iterable, Tuple, Type, TypeVar
 
+from entoli.base.typeclass import _B, Monad
 from entoli.data.seq import Seq
 from entoli.prelude import (
     concat,
@@ -21,10 +22,11 @@ from entoli.prelude import (
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")
+_G = TypeVar("_G")
 
 
 @dataclass
-class Tree(Generic[_A]):
+class Tree(Generic[_A], Monad[_A]):
     value: _A
     children: Iterable[Tree[_A]]
 
@@ -32,13 +34,45 @@ class Tree(Generic[_A]):
         if null(self.children):
             return f"Tree({self.value})"
         else:
-            pre_ordered = self.depth_appended().preorder()
+            pre_ordered = self.level_appended().pre_order()
             return "\n".join(
                 map(
                     lambda x: f"{'  ' * x[0]}{x[1]}",
                     pre_ordered,
                 )
             )
+
+    def fmap(self, f: Callable[[_A], _B]) -> Tree[_B]:
+        return Tree(f(self.value), map(lambda t: t.fmap(f), self.children))
+
+    @staticmethod
+    def pure(x: _A) -> Tree[_A]:
+        return Tree(x, [])
+
+    def ap(self, f: Tree[Callable[[_A], _B]]) -> Tree[_B]:
+        return Tree(
+            f.value(self.value),
+            append(
+                map(
+                    lambda x: x.fmap(f.value),
+                    self.children,
+                ),
+                map(
+                    lambda f_: self.ap(f_),
+                    f.children,
+                ),
+            ),
+        )
+
+    def and_then(self, f: Callable[[_A], Tree[_B]]) -> Tree[_B]:
+        new_tree = f(self.value)
+        return Tree(
+            new_tree.value,
+            append(
+                new_tree.children,
+                map(lambda t: t.and_then(f), self.children),
+            ),
+        )
 
     @staticmethod
     def unfold(f: Callable[[_B], Tuple[_A, Iterable[_B]]], seed: _B) -> Tree[_A]:
@@ -90,171 +124,89 @@ class Tree(Generic[_A]):
             ),
         )
 
-    def depth(self) -> int:
+    def height(self) -> int:
         if null(self.children):
-            return 1
+            return 0
         else:
-            return 1 + max(map(lambda t: t.depth(), self.children))
+            return 1 + max(map(lambda t: t.height(), self.children))
 
-    # @staticmethod
-    # def build(value: _A, get_children: Callable[[_A], Iterable[_A]]) -> Tree[_A]:
-    #     """
-    #     get_children should return empty iterable at leaf nodes.
-    #     Otherwise, it should return iterable of children nodes.
-    #     """
-    #     if null(get_children(value)):
-    #         return Tree(value, [])
-    #     else:
-    #         return Tree(
-    #             value,
-    #             map(
-    #                 lambda x: Tree.build(x, get_children),
-    #                 get_children(value),
-    #             ),
-    #         )
-
-    # def flatten(self) -> Iterable[_A]:
-    #     # yield self.value
-    #     # for child in self.children:
-    #     #     yield from child.flatten()
-    #     return append([self.value], concat_map(lambda x: x.flatten(), self.children))
-
-    # def depth(self) -> int:
-    #     if null(self.children):
-    #         return 1
-    #     else:
-    #         return 1 + max(map(lambda x: x.depth(), self.children))
-
-    # def fmap(self, f: Callable[[_A], _B]) -> Tree[_B]:
-    #     # ! Can't mutate tree with lazy value
-    #     return Tree(f(self.value), map(lambda x: x.fmap(f), self.children))
-
-    # def zip(self, other: Tree[_B]) -> Tree[Tuple[_A, _B]]:
-    #     if null(self.children) or null(other.children):
-    #         return Tree((self.value, other.value), [])
-    #     else:
-    #         if length(self.children) != length(other.children):
-    #             raise ValueError("Trees must have the same shape")
-    #         return Tree(
-    #             value=(self.value, other.value),
-    #             children=map(
-    #                 lambda x: x[0].zip(x[1]),
-    #                 zip(self.children, other.children),
-    #             ),
-    #         )
-
-    def depth_appended(self, depth: int = 0) -> Tree[Tuple[int, _A]]:
+    def level_appended(self, depth: int = 0) -> Tree[Tuple[int, _A]]:
         if null(self.children):
             return Tree((depth, self.value), [])
         else:
             return Tree(
                 (depth, self.value),
                 map(
-                    lambda x: x.depth_appended(depth + 1),
+                    lambda x: x.level_appended(depth + 1),
                     self.children,
                 ),
             )
 
-    # # todo Support general monoid
-    # # def complete(
-    # #     self, to_monoid: Callable[[_A], int], from_monoid: Callable[[int], _A]
-    # # ) -> Tree[_A]:
-    # #     if null(self.children):
-    # #         return self
-    # #     else:
-    # #         sum_of_children = sum(map(lambda x: to_monoid(x.value), self.children))
-    # #         delta = to_monoid(self.value) - sum_of_children
+    def zip(self, other: Tree[_B]) -> Tree[Tuple[_A, _B]]:
+        if null(self.children) or null(other.children):
+            return Tree((self.value, other.value), [])
+        else:
+            if length(self.children) != length(other.children):
+                raise ValueError("Trees must have the same shape")
+            return Tree(
+                value=(self.value, other.value),
+                children=map(
+                    lambda x: x[0].zip(x[1]),
+                    builtins.zip(self.children, other.children),
+                ),
+            )
 
-    # #         error_value = from_monoid(delta)
-
-    # #         return Tree(
-    # #             self.value,
-    # #             append(
-    # #                 map(
-    # #                     lambda x: x.complete(to_monoid, from_monoid),
-    # #                     self.children,
-    # #                 ),
-    # #                 [Tree(error_value, [])],
-    # #             ),
-    # #         )
-
-    # _M = TypeVar("_M")
-
-    # # ? Actually a group
-    # def complete(
-    #     self,
-    #     to_monoid: Callable[[_A], _M],
-    #     from_monoid: Callable[[_M], _A],
-    #     monoid_zero: _M = 0,
-    # ) -> Tree[_A]:
-    #     if null(self.children):
-    #         return self
-    #     else:
-    #         # sum_of_children = sum(map(lambda x: to_monoid(x.value), self.children))
-    #         sum_of_children = foldl(
-    #             operator.add,
-    #             monoid_zero,
-    #             map(lambda x: to_monoid(x.value), self.children),
-    #         )
-    #         delta = to_monoid(self.value) - sum_of_children
-
-    #         error_value = from_monoid(delta)
-
-    #         return Tree(
-    #             self.value,
-    #             # ! Can't mutate tree with lazy value
-    #             append(
-    #                 map(
-    #                     lambda x: x.complete(to_monoid, from_monoid, monoid_zero),
-    #                     self.children,
-    #                 ),
-    #                 [Tree(error_value, [])],
-    #             ),
-    #         )
-
-    def preorder(self) -> Iterable[_A]:
+    def pre_order(self) -> Iterable[_A]:
         """Preorder traversal: Root -> Left -> Right"""
-        result = []
-        result.append(self.value)
-        for child in self.children:
-            result.extend(child.preorder())
-        return result
+        return self.flatten()
 
-    # def inorder(self) -> Iterable[_A]:
-    #     """Inorder traversal: Left -> Root -> Right"""
-    #     # Assuming binary tree structure for inorder traversal
-    #     result = []
-    #     children = list(self.children)
-    #     if children:
-    #         result.extend(children[0].inorder())
-    #     result.append(self.value)
-    #     if len(children) > 1:
-    #         result.extend(children[1].inorder())
-    #     return result
+    def post_order(self) -> Iterable[_A]:
+        """Postorder traversal: Left -> Right -> Root"""
+        return append(
+            concat_map(lambda x: x.post_order(), self.children),
+            [self.value],
+        )
 
-    # def postorder(self) -> Iterable[_A]:
-    #     """Postorder traversal: Left -> Right -> Root"""
-    #     # result = []
-    #     # for child in self.children:
-    #     #     result.extend(child.postorder())
-    #     # result.append(self.value)
-    #     # return result
+    def level_order(self) -> Iterable[_A]:
+        """Level-order traversal"""
 
-    #     if null(self.children):
-    #         return [self.value]
-    #     else:
-    #         children_part = concat_map(lambda x: x.postorder(), self.children)
-    #         return append(children_part, [self.value])
+        def bfs(trees: Iterable[Tree[_A]]) -> Iterable[_A]:
+            if null(trees):
+                return []
+            else:
+                return append(
+                    map(lambda x: x.value, trees),
+                    bfs(concat_map(lambda x: x.children, trees)),
+                )
 
-    # def level_order(self) -> Iterable[_A]:
-    #     """Level-order traversal: Breadth-First Search"""
-    #     result = []
-    #     queue = deque([self])
-    #     while queue:
-    #         node = queue.popleft()
-    #         result.append(node.value)
-    #         queue.extend(node.children)  # type: ignore
-    #     return result
+        return bfs([self])
+
+    def complete(
+        self,
+        to_group: Callable[[_A], _G],
+        from_group: Callable[[_G], _A],
+        unit: _G = 0,
+    ) -> Tree[_A]:
+        if null(self.children):
+            return self
+        else:
+            sum_of_children = foldl(
+                operator.add,
+                unit,
+                map(lambda x: to_group(x.value), self.children),
+            )
+            error = to_group(self.value) - sum_of_children
+
+            return Tree(
+                self.value,
+                append(
+                    map(
+                        lambda x: x.complete(to_group, from_group, unit),
+                        self.children,
+                    ),
+                    [Tree(from_group(error), [])],
+                ),
+            )
 
 
 class _TestTree:
@@ -305,8 +257,8 @@ class _TestTree:
         tree_0 = Tree(0, [])
         assert tree_0.flatten() == [0]
 
-        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
-        assert tree_1.flatten() == [1, 2, 3]
+        tree_1 = Tree(1, [Tree(11, [Tree(111, []), Tree(112, [])]), Tree(12, [])])
+        assert tree_1.flatten() == [1, 11, 111, 112, 12]
 
     def test_levels(self):
         tree_0 = Tree(0, [])
@@ -315,56 +267,53 @@ class _TestTree:
         tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
         assert tree_1.levels() == [[1], [2, 3]]
 
-    def _test_depth(self):
+    def _test_height(self):
         tree_0 = Tree(0, [])
-        assert tree_0.depth() == 1
+        assert tree_0.height() == 0
 
         tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
-        assert tree_1.depth() == 2
+        assert tree_1.height() == 1
 
+    def _test_fmap(self):
+        tree_0 = Tree(0, [])
+        assert tree_0.fmap(lambda x: x + 1) == Tree(1, [])
 
-# def _test_build(self):
-#     def get_children(x):
-#         if x == 1:
-#             return [2, 3, 4]
-#         else:
-#             return []
+        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
+        assert tree_1.fmap(lambda x: x + 1) == Tree(2, [Tree(3, []), Tree(4, [])])
 
-#     tree = Tree.build(1, get_children)
-#     assert tree.value == 1
-#     children = list(tree.children)
+    def _test_pure(self):
+        assert Tree.pure(1) == Tree(1, [])
 
-#     assert children[0].value == 2
-#     assert children[1].value == 3
-#     assert children[2].value == 4
+    def _test_ap(self):
+        tree_0 = Tree(0, [])
+        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
 
-#     assert tree.children == [
-#         Tree(2, []),
-#         Tree(3, []),
-#         Tree(4, []),
-#     ]
+        fs = Tree(
+            lambda x: x + 1, [Tree(lambda x: x * 2, []), Tree(lambda x: x * 3, [])]
+        )
 
-# def _test_preorder(self):
-#     tree = Tree(1, [Tree(11, [Tree(111, []), Tree(112, [])]), Tree(12, [])])
-#     assert tree.preorder() == [1, 11, 111, 112, 12]
+        assert tree_0.ap(fs) == Tree(1, [Tree(0, []), Tree(0, [])])
+        assert tree_1.ap(fs) == Tree(
+            2,
+            [
+                Tree(3, []),
+                Tree(4, []),
+                Tree(2, [Tree(4, []), Tree(6, [])]),
+                Tree(3, [Tree(6, []), Tree(9, [])]),
+            ],
+        )
 
-# def _test_zip(self):
-#     tree1: Tree[int] = Tree(
-#         1, [Tree(11, [Tree(111, []), Tree(112, [])]), Tree(12, [])]
-#     )
-#     tree2: Tree[int] = Tree(
-#         10, [Tree(101, [Tree(1011, []), Tree(1012, [])]), Tree(102, [])]
-#     )
+    def _test_zip(self):
+        tree1 = Tree(1, [Tree(2, []), Tree(3, [])])
+        tree2 = Tree(10, [Tree(20, []), Tree(30, [])])
 
-#     zipped_tree = tree1.zip(tree2)
-
-#     assert zipped_tree == Tree(
-#         (1, 10),
-#         [
-#             Tree((11, 101), [Tree((111, 1011), []), Tree((112, 1012), [])]),  # type: ignore
-#             Tree((12, 102), []),
-#         ],  # type: ignore
-#     )
+        assert tree1.zip(tree2) == Tree(
+            (1, 10),
+            [
+                Tree((2, 20), []),
+                Tree((3, 30), []),  # type: ignore
+            ],
+        )
 
 
 def unfold_tree(f: Callable[[_B], Tuple[_A, Iterable[_B]]], seed: _B) -> Tree[_A]:
