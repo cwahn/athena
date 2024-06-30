@@ -303,6 +303,25 @@ class _TestTree:
             ],
         )
 
+    def _test_and_then(self):
+        tree_0 = Tree(0, [])
+        tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
+
+        f = lambda x: Tree(x + 1, [Tree(x * 2, []), Tree(x * 3, [])])
+
+        assert tree_0.and_then(f) == Tree(1, [Tree(0, []), Tree(0, [])])
+        assert tree_1.and_then(f) == Tree(
+            2,
+            [
+                # Children of application of f to root
+                Tree(2, []),
+                Tree(3, []),
+                # application of f to children of self
+                Tree(3, [Tree(4, []), Tree(6, [])]),
+                Tree(4, [Tree(6, []), Tree(9, [])]),
+            ],
+        )
+
     def _test_zip(self):
         tree1 = Tree(1, [Tree(2, []), Tree(3, [])])
         tree2 = Tree(10, [Tree(20, []), Tree(30, [])])
