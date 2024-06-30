@@ -296,8 +296,10 @@ class _TestTree:
         assert tree_1.ap(fs) == Tree(
             2,
             [
+                # Application of root function to children
                 Tree(3, []),
                 Tree(4, []),
+                # Application of children functions to self
                 Tree(2, [Tree(4, []), Tree(6, [])]),
                 Tree(3, [Tree(6, []), Tree(9, [])]),
             ],
@@ -307,7 +309,8 @@ class _TestTree:
         tree_0 = Tree(0, [])
         tree_1 = Tree(1, [Tree(2, []), Tree(3, [])])
 
-        f = lambda x: Tree(x + 1, [Tree(x * 2, []), Tree(x * 3, [])])
+        def f(x: int) -> Tree[int]:
+            return Tree(x + 1, [Tree(x * 2, []), Tree(x * 3, [])])
 
         assert tree_0.and_then(f) == Tree(1, [Tree(0, []), Tree(0, [])])
         assert tree_1.and_then(f) == Tree(
