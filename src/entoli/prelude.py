@@ -3,6 +3,7 @@ from __future__ import annotations
 import builtins
 import functools
 from dataclasses import dataclass
+import itertools
 from typing import Callable, Generic, Iterable, List, Protocol, Tuple, TypeVar
 
 from entoli.data.maybe import Just, Maybe, Nothing
@@ -133,11 +134,12 @@ def _test_map():
 
 
 def append(xs: Iterable[_A], ys: Iterable[_A]) -> Iterable[_A]:
-    def _append():
-        yield from xs
-        yield from ys
+    # def _append():
+    #     yield from xs
+    #     yield from ys
 
-    return Seq(_append)
+    # return Seq(_append)
+    return Seq(lambda: itertools.chain(xs, ys))
 
 
 def _test_append():
@@ -312,7 +314,7 @@ def _test_reverse():
 
 
 def concat(xss: Iterable[Iterable[_A]]) -> Iterable[_A]:
-    return Seq(lambda: (x for xs in xss for x in xs))
+    return Seq(lambda: itertools.chain.from_iterable(xss))
 
 
 def _test_concat():
@@ -387,15 +389,7 @@ def _test_drop():
 
 
 def take_while(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
-    def _take_while():
-        it = iter(xs)
-        for x in it:
-            if f(x):
-                yield x
-            else:
-                return
-
-    return Seq(_take_while)
+    return Seq(lambda: itertools.takewhile(f, xs))
 
 
 def _test_take_while():
@@ -406,15 +400,7 @@ def _test_take_while():
 
 
 def drop_while(f: Callable[[_A], bool], xs: Iterable[_A]) -> Iterable[_A]:
-    def _drop_while():
-        it = iter(xs)
-        for x in it:
-            if not f(x):
-                yield x
-                break
-        return it
-
-    return Seq(_drop_while)
+    return Seq(lambda: itertools.dropwhile(f, xs))
 
 
 def _test_drop_while():
