@@ -352,12 +352,13 @@ def _test_concat_map():
 
 
 def take(n: int, xs: Iterable[_A]) -> Iterable[_A]:
-    def _take():
-        it = iter(xs)
-        for _ in range(n):
-            yield next(it)
+    # def _take():
+    #     it = iter(xs)
+    #     for _ in range(n):
+    #         yield next(it)
 
-    return Seq(_take)
+    # return Seq(_take)
+    return Seq(lambda: itertools.islice(xs, n))
 
 
 def _test_take():
@@ -370,13 +371,15 @@ def _test_take():
 
 
 def drop(n: int, xs: Iterable[_A]) -> Iterable[_A]:
-    def _drop():
-        it = iter(xs)
-        for _ in range(n):
-            next(it)
-        return it
+    # def _drop():
+    #     it = iter(xs)
+    #     for _ in range(n):
+    #         next(it)
+    #     return it
 
-    return Seq(_drop)
+    # return Seq(_drop)
+
+    return Seq(lambda: itertools.islice(xs, n, None))
 
 
 def _test_drop():
@@ -663,7 +666,8 @@ def _test_filter_map():
 def partition(
     f: Callable[[_A], bool], xs: Iterable[_A]
 ) -> Tuple[Iterable[_A], Iterable[_A]]:
-    return filter(f, xs), filter(lambda x: not f(x), xs)
+    # return filter(f, xs), filter(lambda x: not f(x), xs)
+    return filter(f, xs), Seq(lambda: itertools.filterfalse(f, xs))
 
 
 def _test_partition():
