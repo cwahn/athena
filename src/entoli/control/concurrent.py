@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime
 from time import sleep
 
-from entoli.base.io import Io
+from entoli.prelude import Io
 
 
 def loop(io: Io[None]) -> Io[None]:

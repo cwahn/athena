@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 
-from entoli.base.io import Io
+from entoli.prelude import Io
 
 # File system operation
 

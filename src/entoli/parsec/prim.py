@@ -11,13 +11,21 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    Union,
 )
 
 
-from entoli.data.either import Either
-from entoli.base.io import Io
+from entoli.data.alternative import Alternative
+from entoli.prelude import Io
+from entoli.data.monad_plus import MonadPlus
 from entoli.data.maybe import Just, Maybe, Nothing
-from entoli.base.typeclass import _A, _B, _A_co, Alternative, Functor, Monad, MonadPlus
+
+
+from entoli.data.functor import Functor
+from entoli.data.applicative import Applicative
+from entoli.data.monad import Monad
+from entoli.data.monad_plus import MonadPlus
+
 from entoli.prelude import (
     append,
     fst,
@@ -986,7 +994,7 @@ def many_err() -> Any:
 
 
 # runPT :: (Stream s m t)
-#       => ParsecT s u m a -> u -> SourceName -> s -> m (Either ParseError a)
+#       => ParsecT s u m a -> u -> SourceName -> s -> m (Union ParseError a)
 # {-# INLINABLE runPT #-}
 # runPT p u name s
 #     = do res <- runParsecT p (State s (initialPos name) u)
@@ -1006,7 +1014,7 @@ def run_pt(
     u: _U,
     name: str,
     s: Iterable[_T],
-) -> Either[ParseError, _A]:
+) -> Union[ParseError, _A]:
     res = run_parsec_t(p, State(s, initial_pos(name), u))
 
     def parser_reply(
@@ -1028,7 +1036,7 @@ def run_pt(
 
 
 # runP :: (Stream s Identity t)
-#      => Parsec s u a -> u -> SourceName -> s -> Either ParseError a
+#      => Parsec s u a -> u -> SourceName -> s -> Union ParseError a
 # runP p u name s = runIdentity $ runPT p u name s
 
 
@@ -1037,12 +1045,12 @@ def run_p(
     u: _U,
     name: str,
     s: Iterable[_T],
-) -> Either[ParseError, _A]:
+) -> Union[ParseError, _A]:
     return run_pt(p, u, name, s)
 
 
 # runParserT :: (Stream s m t)
-#            => ParsecT s u m a -> u -> SourceName -> s -> m (Either ParseError a)
+#            => ParsecT s u m a -> u -> SourceName -> s -> m (Union ParseError a)
 # runParserT = runPT
 
 
@@ -1054,12 +1062,12 @@ def run_parser_t(
     u: _U,
     name: str,
     s: Iterable[_T],
-) -> Either[ParseError, _A]:
+) -> Union[ParseError, _A]:
     return run_pt(p, u, name, s)
 
 
 # runParser :: (Stream s Identity t)
-#           => Parsec s u a -> u -> SourceName -> s -> Either ParseError a
+#           => Parsec s u a -> u -> SourceName -> s -> Union ParseError a
 # runParser = runP
 
 # ! Maybe redundant
@@ -1070,12 +1078,12 @@ def run_parser(
     u: _U,
     name: str,
     s: Iterable[_T],
-) -> Either[ParseError, _A]:
+) -> Union[ParseError, _A]:
     return run_p(p, u, name, s)
 
 
 # parse :: (Stream s Identity t)
-#       => Parsec s () a -> SourceName -> s -> Either ParseError a
+#       => Parsec s () a -> SourceName -> s -> Union ParseError a
 # parse p = runP p ()
 
 # ! Maybe redundant
@@ -1085,7 +1093,7 @@ def parse(
     p: Parsec[Iterable[_T], None, _A],
     name: str,
     s: Iterable[_T],
-) -> Either[ParseError, _A]:
+) -> Union[ParseError, _A]:
     return run_p(p, None, name, s)
 
 

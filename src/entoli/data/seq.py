@@ -13,7 +13,7 @@ from typing import (
     TypeVar,
 )
 
-from entoli.base.typeclass import Monad
+from entoli.data.monad import Monad
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")

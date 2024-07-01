@@ -6,7 +6,8 @@ import operator
 from re import T
 from typing import Callable, Generic, Iterable, Tuple, Type, TypeVar
 
-from entoli.base.typeclass import _B, Monad
+# from entoli._base.typeclass import _B, Monad
+from entoli.data.monad import Monad
 from entoli.data.seq import Seq
 from entoli.prelude import (
     concat,

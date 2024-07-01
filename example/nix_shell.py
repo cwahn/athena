@@ -10,7 +10,7 @@ sys.path.insert(
 )
 
 from entoli.data.maybe import Just
-from entoli.system import create_dir_if_missing, file_exists, write_file
+from system.io import create_dir_if_missing, file_exists, write_file
 from entoli.process import (
     CreateProcess,
     create_process,
@@ -18,7 +18,7 @@ from entoli.process import (
     wait_for_process,
 )
 from entoli.prelude import unlines, put_strln
-from entoli.base.io import Io
+from entoli.prelude import Io
 
 flake_content = """
 {

@@ -5,7 +5,7 @@ from http.client import HTTPConnection, HTTPResponse
 
 from dataclasses import dataclass, field
 from typing import Dict, Literal
-from entoli.base.io import Io
+from entoli.prelude import Io
 
 
 def get_conn(host: str, post: int = 80) -> Io[HTTPConnection]:

@@ -1,13 +1,14 @@
+from __future__ import annotations
 import builtins
-from typing import List, Tuple, TypeVar, Iterable, Callable
+from typing import Generic, List, Protocol, Tuple, TypeVar, Iterable, Callable
 import functools
 
 from dataclasses import dataclass
 
-from entoli.base.io import Io
+from entoli.data.monad import Monad
 from entoli.data.maybe import Just, Maybe, Nothing
 from entoli.data.seq import Seq
-from entoli.base.typeclass import Ord, ToBool
+from entoli.data.ord import Ord
 
 
 _A = TypeVar("_A")
@@ -584,6 +585,30 @@ def _test_unwords():
 
 # io
 
+_A = TypeVar("_A")
+_B = TypeVar("_B")
+
+
+@dataclass(frozen=True, slots=True)
+class Io(Generic[_A], Monad[_A]):
+    action: Callable[[], _A]
+
+    def fmap(self, f: Callable[[_A], _B]) -> Io[_B]:
+        return Io(lambda: f(self.action()))
+
+    @staticmethod
+    def pure(x: _A) -> Io[_A]:
+        return Io(lambda: x)
+
+    def ap(self, f: Io[Callable[[_A], _B]]) -> Io[_B]:
+        return Io(lambda: f.action()(self.action()))
+
+    def and_then(self, f: Callable[[_A], Io[_B]]) -> Io[_B]:
+        return Io(lambda: f(self.action()).action())
+
+    def then(self, x: Io[_B]) -> Io[_B]:
+        return self.and_then(lambda _: x)
+
 
 def put_str(s: str) -> Io[None]:
     return Io(lambda: print(s, end=""))
@@ -949,6 +974,10 @@ def _test_is_suffix_of():
 def for_each(f: Callable[[_A], None], xs: Iterable[_A]) -> None:
     for x in xs:
         f(x)
+
+
+class ToBool(Protocol):
+    def __bool__(self) -> bool: ...
 
 
 def if_else(cond: ToBool, t: _A, f: _A) -> _A:
