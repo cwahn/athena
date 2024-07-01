@@ -79,7 +79,7 @@ class Seq(Generic[_A], Monad[_A], Sequence):
         return reversed(list(self))
 
     @staticmethod
-    def from_iterable(xs: Iterable[_A]) -> Seq[_A]:
+    def from_iter(xs: Iterable[_A]) -> Seq[_A]:
         def generator() -> Iterator[_A]:
             return iter(xs)
 
@@ -97,7 +97,7 @@ class Seq(Generic[_A], Monad[_A], Sequence):
 
     @staticmethod
     def pure(x: _A) -> Seq[_A]:
-        return Seq.from_iterable([x])
+        return Seq.from_iter([x])
 
     def ap(self, f: Seq[Callable[[_A], _B]]) -> Seq[_B]:
         def generator() -> Iterator[_B]:
@@ -118,7 +118,7 @@ class Seq(Generic[_A], Monad[_A], Sequence):
 
 class _TestSeq:
     def _test_as_bool(self):
-        seq = Seq.from_iterable([1, 2, 3])
+        seq = Seq.from_iter([1, 2, 3])
         if seq:
             assert True
         else:
@@ -129,7 +129,7 @@ class _TestSeq:
         else:
             assert True
 
-        empty_seq = Seq.from_iterable([])
+        empty_seq = Seq.from_iter([])
         if empty_seq:
             assert False
         else:
@@ -141,39 +141,39 @@ class _TestSeq:
             assert False
 
     def _test___add__(self):
-        seq0 = Seq.from_iterable([])
-        seq1 = Seq.from_iterable([1, 2, 3])
-        seq2 = Seq.from_iterable([4, 5, 6])
+        seq0 = Seq.from_iter([])
+        seq1 = Seq.from_iter([1, 2, 3])
+        seq2 = Seq.from_iter([4, 5, 6])
 
         assert seq0 + seq1 == seq1
         assert seq1 + seq0 == seq1
-        assert seq1 + seq2 == Seq.from_iterable([1, 2, 3, 4, 5, 6])
+        assert seq1 + seq2 == Seq.from_iter([1, 2, 3, 4, 5, 6])
 
     def _test_fmap(self):
         seq_0 = Seq(lambda: iter([]))
         assert seq_0.fmap(lambda x: x + 1) == []
 
-        seq_1 = Seq.from_iterable([1, 2, 3])
+        seq_1 = Seq.from_iter([1, 2, 3])
         assert seq_1.fmap(lambda x: x + 1) == [2, 3, 4]
 
     def _test_pure(self):
         assert Seq.pure(1) == [1]
 
     def _test_ap(self):
-        seq_0 = Seq.from_iterable([])
-        seq_1 = Seq.from_iterable([1, 2, 3])
+        seq_0 = Seq.from_iter([])
+        seq_1 = Seq.from_iter([1, 2, 3])
 
-        fs = Seq.from_iterable([lambda x: x + 1, lambda x: x * 2])
+        fs = Seq.from_iter([lambda x: x + 1, lambda x: x * 2])
 
         assert seq_0.ap(fs) == []
         assert seq_1.ap(fs) == [2, 2, 3, 4, 4, 6]
 
     def _test_and_then(self):
-        seq_0 = Seq.from_iterable([])
-        seq_1 = Seq.from_iterable([1, 2, 3])
+        seq_0 = Seq.from_iter([])
+        seq_1 = Seq.from_iter([1, 2, 3])
 
         def get_smaller(x):
-            return Seq.from_iterable([i for i in range(x)])
+            return Seq.from_iter([i for i in range(x)])
 
         assert seq_0.and_then(get_smaller) == []
         assert seq_1.and_then(get_smaller) == [0, 0, 1, 0, 1, 2]

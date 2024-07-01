@@ -423,7 +423,7 @@ def _test_fold_tree():
     assert fold_tree(lambda x, cs: x + sum(cs), tree1) == 6
 
 
-def merge_trees(trees: Iterable[Tree[_A]]) -> Tree[Iterable[_A]]:
+def merged_tree(trees: Iterable[Tree[_A]]) -> Tree[Iterable[_A]]:
     """
     Takes an iterable of trees and merges them into a single tree of iterable of values.
     Trees must be non-empty and have the same shape.
@@ -438,7 +438,7 @@ def merge_trees(trees: Iterable[Tree[_A]]) -> Tree[Iterable[_A]]:
     else:
         merged_children = builtins.zip(*(tree.children for tree in trees))
 
-        children = map(merge_trees, merged_children)
+        children = map(merged_tree, merged_children)
 
         return Tree(root_values, children)
 
@@ -448,9 +448,7 @@ def _test_merge_trees():
 
     tree2 = Tree(4, [Tree(5, []), Tree(6, [])])
 
-    merged_tree = merge_trees([tree1, tree2])
-
-    assert merged_tree == Tree(
+    assert merged_tree([tree1, tree2]) == Tree(
         [1, 4],
         [
             Tree([2, 5], []),
@@ -459,7 +457,7 @@ def _test_merge_trees():
     )
 
 
-def split_tree(tree: Tree[Iterable[_A]]) -> Iterable[Tree[_A]]:
+def splitted_trees(tree: Tree[Iterable[_A]]) -> Iterable[Tree[_A]]:
     """
     Takes a tree of iterable values and splits it into a list of trees.
     Each iterable value in the tree should have the same length.
@@ -468,7 +466,7 @@ def split_tree(tree: Tree[Iterable[_A]]) -> Iterable[Tree[_A]]:
     if null(tree.children):
         return map(lambda x: Tree(x, []), tree.value)
     else:
-        splitted_tree = map(lambda t: split_tree(t), tree.children)
+        splitted_tree = map(lambda t: splitted_trees(t), tree.children)
 
         return map(
             lambda p: Tree(p[0], p[1]),
@@ -478,11 +476,11 @@ def split_tree(tree: Tree[Iterable[_A]]) -> Iterable[Tree[_A]]:
 
 def _test_split_tree():
     tree_0 = Tree([], [Tree([], []), Tree([], [])])
-    assert split_tree(tree_0) == [] # type: ignore
+    assert splitted_trees(tree_0) == []  # type: ignore
 
     tree_1 = Tree([1, 2], [Tree([3, 4], []), Tree([5, 6], [])])
 
-    assert split_tree(tree_1) == [ # type: ignore
+    assert splitted_trees(tree_1) == [  # type: ignore
         Tree(1, [Tree(3, []), Tree(5, [])]),
         Tree(2, [Tree(4, []), Tree(6, [])]),
     ]
