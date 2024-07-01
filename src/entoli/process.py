@@ -1,9 +1,10 @@
-from pathlib import Path
 import subprocess
-from entoli.prelude import Io
-from entoli.data.maybe import Just, Maybe, Nothing
-from typing import IO, List, Tuple, Dict, Any
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import IO, Any, Dict, List, Tuple
+
+from entoli.data.maybe import Just, Maybe, Nothing
+from entoli.prelude import Io
 
 
 def call_command(command: str) -> Io[None]:

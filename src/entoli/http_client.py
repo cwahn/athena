@@ -1,7 +1,7 @@
-from http.client import HTTPConnection, HTTPResponse
-
 from dataclasses import dataclass, field
+from http.client import HTTPConnection, HTTPResponse
 from typing import Dict, Literal
+
 from entoli.prelude import Io
 
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -9,24 +10,19 @@ from typing import (
     Union,
 )
 
-
 from entoli.data.alternative import Alternative
-from entoli.prelude import Io
-from entoli.data.monad_plus import MonadPlus
 from entoli.data.maybe import Just, Maybe, Nothing
-
-
 from entoli.data.monad import Monad
-
+from entoli.data.monad_plus import MonadPlus
 from entoli.prelude import (
+    Io,
     append,
-    foldl,
-    put_strln,
-    id,
-    uncons,
     filter,
+    foldl,
+    id,
+    put_strln,
+    uncons,
 )
-
 
 _S = TypeVar("_S")
 _U = TypeVar("_U")

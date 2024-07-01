@@ -1,7 +1,6 @@
-import sys
 import os
+import sys
 from pathlib import Path
-
 
 # Add the src directory to the Python path
 sys.path.insert(
@@ -9,6 +8,7 @@ sys.path.insert(
 )
 
 from entoli.data.maybe import Just
+from entoli.prelude import Io, put_strln
 from entoli.process import (
     create_process,
     h_get_contents,
@@ -18,8 +18,6 @@ from entoli.process import (
     terminate_process,
     wait_for_process,
 )
-from entoli.prelude import Io
-from entoli.prelude import put_strln
 
 
 def _main(tpl) -> Io[None]:

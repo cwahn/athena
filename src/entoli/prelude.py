@@ -1,15 +1,14 @@
 from __future__ import annotations
+
 import builtins
-from typing import Generic, List, Protocol, Tuple, TypeVar, Iterable, Callable
 import functools
-
 from dataclasses import dataclass
+from typing import Callable, Generic, Iterable, List, Protocol, Tuple, TypeVar
 
-from entoli.data.monad import Monad
 from entoli.data.maybe import Just, Maybe, Nothing
-from entoli.data.seq import Seq
+from entoli.data.monad import Monad
 from entoli.data.ord import Ord
-
+from entoli.data.seq import Seq
 
 _A = TypeVar("_A")
 _B = TypeVar("_B")

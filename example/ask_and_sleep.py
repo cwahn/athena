@@ -1,16 +1,14 @@
-from datetime import timedelta
-import sys
 import os
+import sys
+from datetime import timedelta
 
 # Add the src directory to the Python path
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 )
 
-from entoli.prelude import Io
 from entoli.control.concurrent import delay_for, loop
-from entoli.prelude import put_strln, get_str
-
+from entoli.prelude import get_str, put_strln
 
 ask_and_sleep = (
     put_strln("How long should I sleep for? (in seconds)")

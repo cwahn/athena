@@ -1,8 +1,10 @@
 from typing import Callable, Iterable, TypeVar
+
 from entoli.data.maybe import Just, Nothing
 from entoli.parsec.prim import (
     Expect,
     Parsec,
+    ParseError,
     SourcePos,
     SysUnExpect,
     parse,
@@ -10,7 +12,6 @@ from entoli.parsec.prim import (
     token_prim,
     tokens,
     update_pos_char,
-    ParseError,
 )
 from entoli.prelude import elem
 

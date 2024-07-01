@@ -1,8 +1,7 @@
-import sys
 import os
+import sys
 from pathlib import Path
 from typing import Any, Tuple
-
 
 # Add the src directory to the Python path
 sys.path.insert(
@@ -10,15 +9,14 @@ sys.path.insert(
 )
 
 from entoli.data.maybe import Just
-from system.io import create_dir_if_missing, file_exists, write_file
+from entoli.prelude import Io, put_strln, unlines
 from entoli.process import (
     CreateProcess,
     create_process,
     h_get_contents,
     wait_for_process,
 )
-from entoli.prelude import unlines, put_strln
-from entoli.prelude import Io
+from entoli.system.io import create_dir_if_missing, file_exists, write_file
 
 flake_content = """
 {
