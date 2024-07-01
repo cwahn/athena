@@ -1,7 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Iterable, Protocol, Self, TypeVar
-from entoli.data.functor import Functor
-from entoli.data.monad import Monad
+from typing import Iterable, Protocol, Self, TypeVar
 from entoli.data.semigroup import Semigroup
 
 _A_co = TypeVar("_A_co", covariant=True)

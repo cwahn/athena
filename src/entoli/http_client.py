@@ -1,6 +1,3 @@
-from ast import parse
-from calendar import c
-from enum import Enum
 from http.client import HTTPConnection, HTTPResponse
 
 from dataclasses import dataclass, field

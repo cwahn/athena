@@ -2,14 +2,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import (
-    Any,
     Callable,
     Generic,
     Iterable,
     Iterator,
-    List,
-    Optional,
-    Type,
     TypeVar,
 )
 

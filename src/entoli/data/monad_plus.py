@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Protocol, Self, Type, TypeVar
+from typing import Protocol, Self, TypeVar
 
 from entoli.data.monad import Monad
 

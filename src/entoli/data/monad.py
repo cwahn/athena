@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Iterable, List, Protocol, Self, Type, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 from entoli.data.applicative import Applicative
 

@@ -5,11 +5,6 @@ from typing import (
     Callable,
     Generic,
     Iterable,
-    NewType,
-    Protocol,
-    Self,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -21,22 +16,13 @@ from entoli.data.monad_plus import MonadPlus
 from entoli.data.maybe import Just, Maybe, Nothing
 
 
-from entoli.data.functor import Functor
-from entoli.data.applicative import Applicative
 from entoli.data.monad import Monad
-from entoli.data.monad_plus import MonadPlus
 
 from entoli.prelude import (
     append,
-    fst,
-    snd,
-    map,
     foldl,
-    head,
     put_strln,
-    tail,
     id,
-    null,
     uncons,
     filter,
 )

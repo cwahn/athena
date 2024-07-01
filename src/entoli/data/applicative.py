@@ -1,6 +1,5 @@
 from __future__ import annotations
-from re import M
-from typing import Any, Callable, Iterable, List, Protocol, Self, Type, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 from entoli.data.functor import Functor
 

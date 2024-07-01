@@ -1,11 +1,10 @@
 from typing import Callable, Iterable, TypeVar
-from entoli.data.maybe import Just, Maybe, Nothing
+from entoli.data.maybe import Just, Nothing
 from entoli.parsec.prim import (
     Expect,
     Parsec,
     SourcePos,
     SysUnExpect,
-    UnExpect,
     parse,
     skip_many,
     token_prim,
@@ -13,7 +12,7 @@ from entoli.parsec.prim import (
     update_pos_char,
     ParseError,
 )
-from entoli.prelude import concat, elem
+from entoli.prelude import elem
 
 _U = TypeVar("_U")
 

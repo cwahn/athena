@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Protocol, Self, Type, TypeVar
+from typing import Protocol, Self, TypeVar
 
 _A_co = TypeVar("_A_co", covariant=True)
 _B_co = TypeVar("_B_co", covariant=True)

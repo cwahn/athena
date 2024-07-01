@@ -252,7 +252,7 @@ def _test_init():
     try:
         next(iter(init([])))
         assert False
-    except Exception as e:
+    except Exception:
         assert True
 
     assert init([1]) == []
