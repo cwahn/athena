@@ -681,15 +681,10 @@ def chunks_of(n: int, xs: Iterable[_A]) -> Iterable[Iterable[_A]]:
     def _chunk():
         it = iter(xs)
         while True:
-            acc = []
-            for _ in range(n):
-                try:
-                    acc.append(next(it))
-                except StopIteration:
-                    break
-            if not acc:
+            chunk = list(itertools.islice(it, n))
+            if not chunk:
                 break
-            yield acc
+            yield chunk
 
     return Seq(_chunk)
 
